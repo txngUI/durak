@@ -37,6 +37,7 @@ export function setup(o: Setup): GameState {
     table: [],
     passed: [],
     attackStreaks: {},
+    lastRound: null,
     durak: null,
     log: [],
   };

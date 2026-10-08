@@ -6,6 +6,8 @@ Les règles suivent [le PDF d'origine](docs/maquettes.html#regles), avec ces lec
 
 - **Relance** : uniquement avec la valeur de la dernière carte d'attaque ou de sa défense.
 - **Tour suivant** : le voisin du dernier attaquant, côté opposé au défenseur, attaque le dernier attaquant (sens constant, même après un ramassage).
+- **Passer** : un joueur qui a passé ne peut plus relancer pendant ce pli.
+- **Pas d'égalité** : si l'attaquant et le défenseur se vident sur le même pli, le défenseur est le durak.
 - **3 poses d'affilée** : une carte posée en attaque sur 2 plis consécutifs ne peut pas l'être au 3ᵉ.
 - À 6 joueurs le talon est vide après la donne : la dernière carte distribuée donne l'atout.
 

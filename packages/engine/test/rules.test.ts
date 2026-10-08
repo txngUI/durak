@@ -109,9 +109,9 @@ describe('relance', () => {
       defender: 0,
     });
     let s = play(s0, [1, atk('6C')], [0, def('7C')]);
-    // P1 et P2 n'ont ni 6 ni 7 : ils passent automatiquement, P3 a la main.
+    // P1 et P2 n'ont ni 6 ni 7 : ils sont sautés, P3 a la main.
     expect(s.actor).toBe(3);
-    expect(s.passed).toEqual([1, 2]);
+    expect(s.passed).toEqual([]);
     s = play(s, [3, atk('7H')], [0, def('AD')]);
     // Nouvelle défense : la relance repart de l'attaquant principal.
     expect(s.actor).toBe(1);
@@ -136,6 +136,30 @@ describe('relance', () => {
     const after = play(r.state, [2, atk('7S')]);
     expect(after.phase).toBe('defend');
     expect(after.actor).toBe(0);
+  });
+
+  it('un joueur qui a passé ne peut plus relancer pendant ce pli', () => {
+    const s0 = setup({ hands: ['7C AS KD 8D AC', '6C 6D 7D', '7S AD'], trump: 'H', attacker: 1, defender: 0 });
+    let s = play(s0, [1, atk('6C')], [0, def('7C')]);
+    expect(s.actor).toBe(1);
+    s = play(s, [1, pass]);
+    // B prend le relais, attaque, le défenseur bat.
+    expect(s.actor).toBe(2);
+    s = play(s, [2, atk('7S')], [0, def('AS')]);
+    // A a un 7 mais a passé : la main reste à B.
+    expect(s.actor).toBe(2);
+    expect(applyAction(s, 1, atk('7D')).ok).toBe(false);
+    s = play(s, [2, pass]);
+    expect(s.round).toBe(2);
+    expect(s.discardCount).toBe(4);
+    expect(s.passed).toEqual([]);
+  });
+
+  it('le dernier pli reste consultable avec son issue', () => {
+    const s0 = setup({ hands: ['8C KD', '7C 9H', 'QS'], trump: 'H', attacker: 1, defender: 0 });
+    const s = play(s0, [1, atk('7C')], [0, def('8C')]);
+    expect(s.lastRound).toMatchObject({ round: 1, defender: 0, outcome: 'discard' });
+    expect(s.lastRound!.table).toEqual([{ attack: c('7C'), defense: c('8C'), by: 1 }]);
   });
 
   it('le défenseur ne peut pas relancer et on ne passe pas sans attaque', () => {
@@ -265,10 +289,12 @@ describe('fin de partie', () => {
     expect(s.players[1].place).toBe(0);
   });
 
-  it('égalité si les deux derniers se vident sur le même pli', () => {
+  it('pas d’égalité : si les deux derniers se vident sur le même pli, le défenseur est le durak', () => {
     const s = play(setup({ hands: ['AS', '6S'], trump: 'H', attacker: 1, defender: 0 }), [1, atk('6S')], [0, def('AS')]);
     expect(s.phase).toBe('finished');
-    expect(s.durak).toBeNull();
+    expect(s.durak).toBe(0);
+    expect(s.players[1].place).toBe(0);
+    expect(s.players[0].place).toBeNull();
   });
 });
 
@@ -331,7 +357,8 @@ describe('parties complètes aléatoires', () => {
           expect(s.table.length).toBeLessThanOrEqual(6);
           expect(++steps).toBeLessThan(3000);
         }
-        expect(s.players.filter((p) => p.place === null).length).toBeLessThanOrEqual(1);
+        expect(s.players.filter((p) => p.place === null)).toHaveLength(1);
+        expect(s.durak).not.toBeNull();
       }
     }
   }, 30_000);

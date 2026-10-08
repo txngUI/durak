@@ -121,6 +121,14 @@ button {
   color: var(--ivory);
   white-space: nowrap;
 }
+.pill.gold {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+.pill.alert {
+  background: var(--danger);
+  color: #fff;
+}
 .panel {
   background: var(--panel);
   border: 1px solid var(--felt-line);
@@ -374,6 +382,11 @@ button {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+}
+.code-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .code {
   font-family: var(--mono);

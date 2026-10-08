@@ -32,19 +32,19 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
     <main className="lobby">
       <div className="lobby-inner">
         <div className="top">
-          <div>
-            <h1 className="logo" style={{ fontSize: 28, margin: 0 }}>
-              Salon
-            </h1>
+          <h1 className="logo" style={{ fontSize: 28, margin: 0 }}>
+            Salon
+          </h1>
+          <div className="code-block">
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className="code" aria-label={`Code du salon ${room.code.split('').join(' ')}`}>
+                {room.code}
+              </span>
+              <button type="button" className="btn ghost small" onClick={copy}>
+                {copied ? 'Code copié' : 'Copier le code'}
+              </button>
+            </div>
             <div className="hint">Donne ce code à tes amis pour qu’ils rejoignent la table.</div>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="code" aria-label={`Code du salon ${room.code.split('').join(' ')}`}>
-              {room.code}
-            </span>
-            <button type="button" className="btn ghost small" onClick={copy}>
-              {copied ? 'Code copié' : 'Copier le code'}
-            </button>
           </div>
         </div>
 

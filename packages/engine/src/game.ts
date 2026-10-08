@@ -64,12 +64,21 @@ export interface GameState {
   /** Joueur qui doit agir maintenant (-1 si partie terminée). */
   actor: number;
   table: TablePair[];
-  /** Joueurs ayant refusé de relancer depuis la dernière défense. */
+  /** Joueurs ayant passé pendant ce pli : ils ne peuvent plus relancer jusqu'au pli suivant. */
   passed: number[];
   /** Série d'attaques par carte, pour la règle des 3 poses d'affilée. */
   attackStreaks: Record<string, { round: number; count: number }>;
+  /** Dernier pli terminé, pour que l'interface puisse le montrer un instant. */
+  lastRound: LastRound | null;
   durak: number | null;
   log: LogEntry[];
+}
+
+export interface LastRound {
+  round: number;
+  table: TablePair[];
+  defender: number;
+  outcome: 'discard' | 'take';
 }
 
 export type Action =
@@ -159,6 +168,7 @@ export function createGame(
     table: [],
     passed: [],
     attackStreaks: {},
+    lastRound: null,
     durak: null,
     log: [{ t: 'start', defender, reason, trump: trumpCard }],
   };
@@ -270,18 +280,21 @@ function nextRelance(s: GameState) {
   s.phase = 'attack';
   for (const p of throwerOrder(s)) {
     if (s.passed.includes(p)) continue;
+    // Sans carte de la bonne valeur, on est sauté pour cette relance seulement :
+    // une défense suivante peut ouvrir d'autres valeurs.
     if (attackOptions(s, p).length > 0) {
       s.actor = p;
       return;
     }
-    // Aucune carte de la bonne valeur : il passe automatiquement.
-    s.passed.push(p);
   }
   endRound(s, true);
 }
 
 function endRound(s: GameState, defended: boolean) {
   const cards = s.table.flatMap((pair) => (pair.defense ? [pair.attack, pair.defense] : [pair.attack]));
+  if (s.table.length > 0) {
+    s.lastRound = { round: s.round, table: s.table, defender: s.defender, outcome: defended ? 'discard' : 'take' };
+  }
   if (defended) {
     if (cards.length > 0) {
       s.discardCount += cards.length;
@@ -304,13 +317,15 @@ function endRound(s: GameState, defended: boolean) {
 
   // Talon vide : ceux qui n'ont plus de cartes sortent du jeu.
   if (s.deck.length === 0) {
+    const inGame = s.players.map((_, p) => p).filter((p) => isIn(s, p));
+    let leaving = inGame.filter((p) => s.players[p].hand.length === 0);
+    // Pas d'égalité : si tout le monde se vide sur le même pli, le défenseur est le durak.
+    if (leaving.length === inGame.length) leaving = leaving.filter((p) => p !== s.defender);
     let place = s.players.filter((p) => p.place !== null).length;
-    s.players.forEach((pl, p) => {
-      if (pl.place === null && pl.hand.length === 0) {
-        pl.place = place++;
-        s.log.push({ t: 'out', p, place: pl.place });
-      }
-    });
+    for (const p of leaving) {
+      s.players[p].place = place++;
+      s.log.push({ t: 'out', p, place: s.players[p].place! });
+    }
   }
 
   const remaining = s.players.map((_, p) => p).filter((p) => isIn(s, p));
@@ -391,7 +406,6 @@ export function applyAction(state: GameState, player: number, action: Action): A
       removeFromHand(s, player, action.card);
       pair.defense = action.card;
       s.log.push({ t: 'defend', p: player, card: action.card, on: pair.attack });
-      s.passed = [];
       nextRelance(s);
       return { ok: true, state: s };
     }

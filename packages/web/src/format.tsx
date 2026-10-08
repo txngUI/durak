@@ -39,7 +39,7 @@ export function logText(e: LogEntry, name: (p: number) => string): { who?: strin
     case 'out':
       return { who: name(e.p), text: 'n’a plus de cartes : sorti !' };
     case 'end':
-      return { text: e.durak === null ? 'Fin de partie : égalité, pas de durak.' : `${name(e.durak)} est le durak.`, tone: 'red' };
+      return { text: `${name(e.durak ?? -1)} est le durak.`, tone: 'red' };
   }
 }
 

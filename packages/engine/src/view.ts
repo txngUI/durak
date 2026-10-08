@@ -1,6 +1,7 @@
 import { type Card, type Rank, type Suit, sortHand } from './cards';
 import {
   type GameState,
+  type LastRound,
   type LogEntry,
   type Phase,
   type TablePair,
@@ -47,6 +48,8 @@ export interface PlayerView {
     canPass: boolean;
     chooseTargets: number[];
   };
+  /** Dernier pli terminé (cartes jouées et issue), affiché brièvement par l'interface. */
+  lastRound: LastRound | null;
   durak: number | null;
   log: LogEntry[];
   /** Nombre total d'entrées du journal (le journal envoyé n'en contient que les dernières). */
@@ -81,6 +84,7 @@ export function viewFor(s: GameState, you: number): PlayerView {
       canPass: isActor && s.phase === 'attack' && s.table.length > 0,
       chooseTargets: isActor && s.phase === 'chooseAttacker' ? neighbours(s, s.defender) : [],
     },
+    lastRound: s.lastRound,
     durak: s.durak,
     log: s.log.slice(-40),
     logSize: s.log.length,

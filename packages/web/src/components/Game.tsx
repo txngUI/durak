@@ -1,4 +1,4 @@
-import { type Card, type PlayerView, type RoomView, SUIT_SYMBOL, cardLabel } from '@durak/engine';
+import { type Card, type LastRound, type PlayerView, type RoomView, SUIT_SYMBOL, cardLabel } from '@durak/engine';
 import { AnimatePresence, type PanInfo, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { avatarColors, cardKey, initial, logText, promptFor, sameCard } from '../format';
@@ -7,6 +7,9 @@ import { Modal } from './Modal';
 import { PlayingCard } from './PlayingCard';
 
 type Exit = 'take' | 'discard';
+
+/** Durée d'affichage des cartes d'un pli terminé avant qu'elles partent. */
+const LINGER_MS = 2400;
 
 const pairVariants = {
   exit: (kind: Exit) =>
@@ -77,7 +80,6 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
     for (const e of fresh) {
       if (e.t === 'take') {
         setExitKind('take');
-        message = e.p === v.you ? `Tu ramasses ${e.count} cartes` : `${name(e.p)} ramasse ${e.count} cartes`;
       } else if (e.t === 'discard') {
         setExitKind('discard');
       } else if (e.t === 'out' && v.phase !== 'finished') {
@@ -92,6 +94,22 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
     const t = setTimeout(() => setFlash(null), 1600);
     return () => clearTimeout(t);
   }, [flash]);
+
+  // --- Pli terminé : on laisse ses cartes visibles un instant ---------------
+  const [linger, setLinger] = useState<LastRound | null>(null);
+  const seenRound = useRef(v.lastRound?.round ?? 0);
+  useEffect(() => {
+    if (!v.lastRound || v.lastRound.round === seenRound.current) return;
+    seenRound.current = v.lastRound.round;
+    setLinger(v.lastRound);
+    const t = setTimeout(() => setLinger(null), LINGER_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v.lastRound?.round]);
+  // Dès qu'une nouvelle carte est posée, le pli suivant prend la place.
+  const shownLinger = linger && v.table.length === 0 && v.phase !== 'finished' ? linger : null;
+  const shownTable = shownLinger ? shownLinger.table : v.table;
+  const tableDefender = shownLinger ? shownLinger.defender : v.defender;
 
   // --- Mise en page de la main ----------------------------------------------
   // Tailles de cartes calculées selon la largeur ET la hauteur de l'écran.
@@ -198,21 +216,31 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         </div>
 
         <div ref={tableRef} className={`tablezone ${dragging ? 'droppable' : ''}`}>
-          <div className="counter">
-            <span className="pill">
-              Attaque {v.table.length} / {v.maxAttacks}
-            </span>
+          <div className="counter" aria-live="polite">
+            {shownLinger ? (
+              <span className={`pill ${shownLinger.outcome === 'discard' ? 'gold' : 'alert'}`}>
+                {shownLinger.outcome === 'discard'
+                  ? `${shownLinger.defender === v.you ? 'Tu as' : `${name(shownLinger.defender)} a`} tout battu : à la défausse`
+                  : `${shownLinger.defender === v.you ? 'Tu ramasses' : `${name(shownLinger.defender)} ramasse`} ${shownLinger.table.reduce((n, p) => n + (p.defense ? 2 : 1), 0)} cartes`}
+              </span>
+            ) : (
+              <span className="pill">
+                Attaque {v.table.length} / {v.maxAttacks}
+              </span>
+            )}
             <div className="dots" aria-hidden="true">
               {Array.from({ length: v.maxAttacks }, (_, i) => (
-                <i key={i} className={i < v.table.length ? 'on' : ''} />
+                <i key={i} className={i < shownTable.length ? 'on' : ''} />
               ))}
             </div>
           </div>
           <div className="pairs">
             <AnimatePresence custom={exitKind} mode="popLayout">
-              {v.table.map((pair) => {
+              {shownTable.map((pair) => {
                 const fromYou = pair.by === v.you;
-                const unbeaten = !pair.defense && pair === last && v.phase === 'defend';
+                const unbeaten = !shownLinger && !pair.defense && pair === last && v.phase === 'defend';
+                // Cartes ramassées : elles sont peut-être déjà dans ta main, pas d'animation partagée.
+                const shared = !shownLinger || shownLinger.outcome === 'discard';
                 return (
                   <motion.div
                     key={cardKey(pair.attack)}
@@ -223,7 +251,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                     layout
                   >
                     <PlayingCard
-                      layoutId={`c-${cardKey(pair.attack)}`}
+                      layoutId={shared ? `c-${cardKey(pair.attack)}` : undefined}
                       card={pair.attack}
                       trump={v.trumpSuit}
                       className={unbeaten ? 'target' : ''}
@@ -232,11 +260,11 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                     />
                     {pair.defense && (
                       <PlayingCard
-                        layoutId={`c-${cardKey(pair.defense)}`}
+                        layoutId={shared ? `c-${cardKey(pair.defense)}` : undefined}
                         card={pair.defense}
                         trump={v.trumpSuit}
                         className="def"
-                        initial={v.defender === v.you ? undefined : { opacity: 0, y: -80, rotate: 0 }}
+                        initial={tableDefender === v.you ? undefined : { opacity: 0, y: -80, rotate: 0 }}
                         animate={{ opacity: 1, y: 0, rotate: 8 }}
                       />
                     )}
@@ -244,7 +272,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                 );
               })}
             </AnimatePresence>
-            {Array.from({ length: Math.max(0, Math.min(3, v.maxAttacks - v.table.length)) }, (_, i) => (
+            {Array.from({ length: Math.max(0, Math.min(3, v.maxAttacks - shownTable.length)) }, (_, i) => (
               <div key={`slot-${i}`} className="pair slot" aria-hidden="true" />
             ))}
           </div>
@@ -403,7 +431,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         <Modal label="Fin de partie">
           <PlayingCard style={{ margin: '0 auto', rotate: '-8deg' }} size={40} />
           <h2>
-            {v.durak === null ? 'Égalité : pas de durak' : v.durak === v.you ? 'Tu es le durak !' : `${name(v.durak)} est le durak`}
+            {v.durak === v.you ? 'Tu es le durak !' : `${name(v.durak ?? -1)} est le durak`}
           </h2>
           <div className="rank">
             {v.players

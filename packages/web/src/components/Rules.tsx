@@ -28,7 +28,8 @@ export function Rules({ onClose }: { onClose: () => void }) {
         </li>
         <li>
           L’attaquant peut relancer avec une carte de même valeur que l’une des deux cartes qui viennent d’être posées. S’il
-          ne peut ou ne veut pas, les autres joueurs peuvent prendre le relais dans l’ordre de la table.
+          ne peut ou ne veut pas, les autres joueurs peuvent prendre le relais dans l’ordre de la table. Un joueur qui a
+          passé ne peut plus relancer pendant ce pli.
         </li>
         <li>6 attaques contrées, ou plus personne ne relance : les cartes vont à la défausse.</li>
         <li>Si le défenseur ne peut ou ne veut pas battre une carte, il ramasse toutes les cartes en jeu.</li>
@@ -47,7 +48,10 @@ export function Rules({ onClose }: { onClose: () => void }) {
       <h3>Fin de partie</h3>
       <ul>
         <li>Talon épuisé : on continue avec les cartes en main. Le premier à vider sa main gagne.</li>
-        <li>Le dernier joueur à avoir encore des cartes est le durak. Si les deux derniers se vident ensemble : égalité.</li>
+        <li>
+          Le dernier joueur à avoir encore des cartes est le durak. Il n’y a pas d’égalité : si l’attaquant et le
+          défenseur se vident sur le même pli, le défenseur est le durak.
+        </li>
       </ul>
       <div className="buttons">
         <button type="button" className="btn primary" onClick={onClose}>
