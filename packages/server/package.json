@@ -1,0 +1,19 @@
+{
+  "name": "@durak/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "PORT=${DURAK_SERVER_PORT:-3000} tsx watch src/index.ts",
+    "start": "NODE_ENV=production tsx src/index.ts"
+  },
+  "dependencies": {
+    "@durak/engine": "*",
+    "socket.io": "^4.8.4",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "socket.io-client": "^4.8.4"
+  }
+}

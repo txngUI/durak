@@ -1,0 +1,22 @@
+{
+  "name": "durak",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/engine",
+    "packages/server",
+    "packages/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c yellow,cyan \"npm run dev -w @durak/server\" \"npm run dev -w @durak/web\"",
+    "build": "npm run build -w @durak/web",
+    "start": "npm start -w @durak/server",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/engine && tsc -p packages/server && tsc -p packages/web"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

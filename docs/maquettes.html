@@ -1,0 +1,500 @@
+<title>Durak en ligne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#edf1f0; --surface:#ffffff; --ink:#172022; --muted:#55666a; --line:#d3dcdb;
+  --accent:#1d5a5c; --accent-soft:#d9e8e7; --brass:#b98a2e;
+  /* table de jeu : identique dans les deux thèmes */
+  --felt:#163a3c; --felt-2:#1e4a4c; --felt-line:#2c5d5f; --gold:#d8ae55;
+  --ivory:#f8f4ea; --card-ink:#1b1d1f; --card-red:#b8322a; --glow:#f2cf73;
+  --display:"Yeseva One", Georgia, serif;
+  --body:"Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1617; --surface:#162123; --ink:#e3ebea; --muted:#93a6a8; --line:#28393b;
+    --accent:#7cc3c2; --accent-soft:#1d3335; --brass:#d8ae55;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1617; --surface:#162123; --ink:#e3ebea; --muted:#93a6a8; --line:#28393b;
+  --accent:#7cc3c2; --accent-soft:#1d3335; --brass:#d8ae55;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;padding-inline:16px;padding-block:40px 80px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6vw,54px)}
+h2{font-size:28px}
+h3{font-size:19px;font-family:var(--body);font-weight:600}
+p{margin:0;max-width:68ch}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);font-weight:600}
+header{display:flex;flex-direction:column;gap:14px}
+header .lede{color:var(--muted);font-size:17px}
+.status{display:inline-flex;gap:8px;align-items:center;font-size:13px;font-weight:600;background:var(--accent-soft);color:var(--accent);padding:6px 12px;border-radius:999px;width:fit-content}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+section{display:flex;flex-direction:column;gap:20px}
+.sec-head{display:flex;flex-direction:column;gap:6px}
+.sec-head p{color:var(--muted)}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px}
+nav.toc a{color:var(--accent);text-decoration:none;border:1px solid var(--line);padding:6px 12px;border-radius:6px;font-size:14px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);outline:none}
+
+/* ---------- Stack ---------- */
+.stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stack div{background:var(--surface);padding:18px;display:flex;flex-direction:column;gap:6px}
+.stack .k{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stack .v{font-weight:600;font-size:16px}
+.stack p{font-size:14px;color:var(--muted)}
+.arch{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;overflow-x:auto}
+.arch pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--ink)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.notes h3{margin-bottom:8px}
+
+/* ---------- Règles ---------- */
+.rules{border-top:1px solid var(--line)}
+.rule{display:grid;grid-template-columns:200px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+.rule .t{font-weight:600}
+.rule .d{font-size:14.5px}
+.rule .d em{font-style:normal;color:var(--muted)}
+.tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;margin-right:6px;vertical-align:1px}
+.tag.ok{background:var(--accent-soft);color:var(--accent)}
+.tag.q{background:#f6e3b8;color:#7a5410}
+@media (max-width:640px){.rule{grid-template-columns:1fr;gap:4px}}
+
+/* ---------- Maquettes ---------- */
+.shot{display:flex;flex-direction:column;gap:10px}
+.shot figcaption{font-size:14px;color:var(--muted);max-width:75ch}
+.shot figcaption b{color:var(--ink)}
+figure{margin:0}
+.scroll{overflow-x:auto;border-radius:14px}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;align-items:start}
+
+.screen{background:radial-gradient(ellipse at 50% 40%,var(--felt-2),var(--felt) 70%);color:var(--ivory);border-radius:14px;position:relative;overflow:hidden;font-family:var(--body)}
+.screen::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.015) 0 2px,transparent 2px 6px)}
+.screen .logo{font-family:var(--display);color:var(--gold);letter-spacing:.02em}
+
+/* Cartes */
+.card{--w:62px;width:var(--w);height:calc(var(--w)*1.42);background:var(--ivory);color:var(--card-ink);border-radius:calc(var(--w)*.1);position:relative;box-shadow:0 2px 0 rgba(0,0,0,.15),0 6px 14px rgba(0,0,0,.28);flex:none;font-weight:700}
+.card.red{color:var(--card-red)}
+.card .r{position:absolute;top:5%;left:9%;font-size:calc(var(--w)*.28);line-height:1}
+.card .s1{position:absolute;top:27%;left:9%;font-size:calc(var(--w)*.2);line-height:1}
+.card .c{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--w)*.5);padding-top:12%}
+.card.trump::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 2px var(--gold)}
+.card.back{background:#7a1f1c;background-image:repeating-linear-gradient(45deg,rgba(216,174,85,.35) 0 2px,transparent 2px 7px),repeating-linear-gradient(-45deg,rgba(216,174,85,.35) 0 2px,transparent 2px 7px);box-shadow:inset 0 0 0 3px #f8f4ea,inset 0 0 0 5px #7a1f1c,0 4px 10px rgba(0,0,0,.3)}
+.card.dim{filter:brightness(.62) saturate(.6)}
+.card.play{transform:translateY(-14px);box-shadow:0 0 0 2px var(--glow),0 10px 22px rgba(0,0,0,.4)}
+.card.sel{transform:translateY(-26px);box-shadow:0 0 0 3px var(--glow),0 0 22px rgba(242,207,115,.6)}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.28);color:var(--ivory)}
+.pill.gold{background:var(--gold);color:#2a1d05}
+.btn{font-family:var(--body);font-weight:600;font-size:14px;border-radius:8px;padding:10px 18px;border:0;cursor:pointer}
+.btn.primary{background:var(--gold);color:#2a1d05}
+.btn.ghost{background:transparent;color:var(--ivory);box-shadow:inset 0 0 0 1.5px rgba(248,244,234,.5)}
+.btn.danger{background:#c9463c;color:#fff}
+
+/* Accueil */
+.home{padding:36px;display:grid;grid-template-columns:1.1fr 1fr;gap:32px;min-height:400px;align-items:center}
+.home .fan{position:relative;height:220px}
+.home .fan .card{position:absolute;left:50%;bottom:10px;--w:96px;transform-origin:50% 120%}
+.home h4{font-family:var(--display);font-weight:400;font-size:44px;color:var(--gold);margin:0}
+.home .sub{color:rgba(248,244,234,.7);font-size:14px;margin-top:4px}
+.panel{background:rgba(8,26,27,.55);border:1px solid var(--felt-line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:rgba(248,244,234,.7)}
+.input{background:rgba(248,244,234,.08);border:1px solid var(--felt-line);border-radius:8px;padding:10px 12px;color:var(--ivory);font-size:15px;font-family:var(--body)}
+.input.mono{font-family:var(--mono);letter-spacing:.2em}
+.or{display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(248,244,234,.5)}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--felt-line)}
+
+/* Salon */
+.lobby{padding:24px;display:flex;flex-direction:column;gap:18px}
+.lobby .top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.code{font-family:var(--mono);font-size:22px;letter-spacing:.25em;color:var(--gold)}
+.seats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.seat{border:1px solid var(--felt-line);border-radius:10px;padding:12px;display:flex;gap:10px;align-items:center;background:rgba(8,26,27,.35);font-size:14px}
+.seat.empty{border-style:dashed;color:rgba(248,244,234,.5);justify-content:center}
+.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.seat small{display:block;font-size:11px;color:rgba(248,244,234,.6)}
+
+/* Table desktop */
+.table{width:960px;height:600px;position:relative}
+.opp{position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px}
+.opp .name{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.opp .backs{display:flex}
+.opp .backs .card{--w:30px;margin-left:-18px}
+.opp .backs .card:first-child{margin-left:0}
+.role{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:4px}
+.role.att{background:#c9463c;color:#fff}
+.role.def{background:var(--gold);color:#2a1d05}
+.role.wait{background:rgba(255,255,255,.12);color:rgba(248,244,234,.7)}
+.opp.active .av{box-shadow:0 0 0 3px var(--glow)}
+.deck{position:absolute;left:40px;top:220px;width:140px;height:130px}
+.deck .trumpc{position:absolute;left:24px;top:22px;transform:rotate(90deg)}
+.deck .pile{position:absolute;left:0;top:10px}
+.deck .pile .card{position:absolute}
+.deck .cnt{position:absolute;left:4px;top:118px;font-size:12px;color:rgba(248,244,234,.75);white-space:nowrap}
+.discard{position:absolute;right:44px;top:228px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:rgba(248,244,234,.75)}
+.discard .stackd{position:relative;width:62px;height:88px}
+.discard .stackd .card{position:absolute}
+.center{position:absolute;left:220px;right:200px;top:190px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.pairs{display:flex;gap:22px}
+.pair{position:relative;width:78px;height:110px}
+.pair .card:nth-child(2){position:absolute;left:16px;top:20px;transform:rotate(8deg)}
+.pair.slot{border:1.5px dashed rgba(248,244,234,.18);border-radius:8px;width:62px;height:88px}
+.target{box-shadow:0 0 0 3px #c9463c,0 6px 14px rgba(0,0,0,.3)!important}
+.counter{display:flex;gap:10px;align-items:center}
+.dots{display:flex;gap:4px}
+.dots i{width:9px;height:9px;border-radius:50%;background:rgba(248,244,234,.2)}
+.dots i.on{background:var(--gold)}
+.me{position:absolute;left:0;right:0;bottom:0;padding:0 24px 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+.hand{display:flex;padding-top:30px}
+.hand .card{--w:76px;margin-left:-14px}
+.hand .card:first-child{margin-left:0}
+.actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.prompt{font-size:14px;background:rgba(8,26,27,.6);border:1px solid var(--felt-line);padding:8px 12px;border-radius:8px;max-width:260px}
+.prompt b{color:var(--glow)}
+.timer{height:4px;width:200px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden}
+.timer i{display:block;height:100%;width:62%;background:var(--glow)}
+.topbar{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:12px 18px;font-size:13px}
+.log{position:absolute;right:16px;top:330px;width:170px;font-size:11.5px;color:rgba(248,244,234,.7);display:flex;flex-direction:column;gap:3px}
+.log b{color:var(--ivory);font-weight:600}
+
+/* Mobile */
+.phone{width:340px;height:700px;border-radius:34px;border:8px solid #0b0f10;position:relative;margin:0 auto;box-shadow:0 20px 40px rgba(0,0,0,.25)}
+.phone .screen{position:absolute;inset:0;border-radius:26px}
+.m-opps{display:flex;justify-content:space-around;padding:44px 10px 0}
+.m-opp{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:600}
+.m-opp .av{width:38px;height:38px}
+.m-opp .n{font-size:10px;color:rgba(248,244,234,.65);font-weight:500}
+.m-mid{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 0;font-size:11px;color:rgba(248,244,234,.75)}
+.m-mid .tr{display:flex;align-items:center;gap:6px}
+.m-table{display:grid;grid-template-columns:repeat(3,auto);justify-content:center;gap:12px 14px;padding:18px 10px 0}
+.m-table .pair{width:62px;height:90px}
+.m-table .card{--w:50px}
+.m-table .pair .card:nth-child(2){left:12px;top:16px}
+.m-table .pair.slot{width:50px;height:71px}
+.m-bottom{position:absolute;left:0;right:0;bottom:0;padding:0 10px 16px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.m-hand{display:flex;justify-content:center;padding-top:24px}
+.m-hand .card{--w:52px;margin-left:-12px}
+.m-hand .card:first-child{margin-left:0}
+.m-actions{display:flex;gap:8px;width:100%}
+.m-actions .btn{flex:1;padding:12px 8px}
+
+/* Modale & fin */
+.overlay{position:absolute;inset:0;background:rgba(5,15,16,.55);display:grid;place-items:center;padding:16px}
+.modal{background:#10292a;border:1px solid var(--felt-line);border-radius:14px;padding:22px;max-width:360px;width:100%;display:flex;flex-direction:column;gap:14px;text-align:center;position:relative;z-index:1}
+.modal h5{font-family:var(--display);font-weight:400;font-size:24px;margin:0;color:var(--gold)}
+.modal p{font-size:13.5px;color:rgba(248,244,234,.8);margin:0 auto}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice{border:1.5px solid var(--felt-line);border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;font-weight:600;background:rgba(255,255,255,.03)}
+.choice:hover{border-color:var(--gold)}
+.rank{display:flex;flex-direction:column;gap:6px;text-align:left}
+.rank div{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:13.5px}
+.rank .pos{font-family:var(--display);color:var(--gold);width:20px}
+.rank .durak{background:rgba(201,70,60,.25);border:1px solid #c9463c}
+.cap{font-size:30px;line-height:1}
+
+@media (max-width:720px){
+  .home{grid-template-columns:1fr;padding:22px}
+  .home .fan{height:170px}
+  .home .fan .card{--w:74px}
+  .seats{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:no-preference){
+  .card.play,.card.sel{transition:transform .2s}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Proposition · à valider avant développement</span>
+  <h1>Durak en ligne</h1>
+  <p class="lede">Le jeu de cartes russe, jouable à 2–6 dans le navigateur, entre amis grâce à un code de salon. Voici la stack technique proposée, la lecture des règles du PDF (avec les points ambigus à trancher) et les maquettes des écrans principaux.</p>
+  <span class="status">Règles tranchées · maquettes et stack en attente de validation</span>
+  <nav class="toc" aria-label="Sommaire">
+    <a href="#stack">Choix techniques</a>
+    <a href="#regles">Règles implémentées</a>
+    <a href="#maquettes">Maquettes</a>
+  </nav>
+</header>
+
+<!-- ============ STACK ============ -->
+<section id="stack">
+  <div class="sec-head">
+    <span class="eyebrow">01 · Choix techniques</span>
+    <h2>Une seule base TypeScript, un serveur qui fait autorité</h2>
+    <p>Le moteur de règles est une bibliothèque pure, partagée entre le serveur (qui arbitre) et le client (qui surligne les coups jouables). Aucun joueur ne reçoit la main des autres : le serveur envoie à chacun une vue filtrée.</p>
+  </div>
+
+  <div class="stack">
+    <div><span class="k">Langage</span><span class="v">TypeScript partout</span><p>Monorepo pnpm : <code>engine</code>, <code>server</code>, <code>web</code>. Types des messages partagés.</p></div>
+    <div><span class="k">Moteur de règles</span><span class="v">TS pur + Vitest</span><p>Machine à états déterministe (graine de mélange), un test par règle du PDF.</p></div>
+    <div><span class="k">Temps réel</span><span class="v">Node 22 + Socket.IO</span><p>Salons, reconnexion automatique après coupure, horloge de tour côté serveur.</p></div>
+    <div><span class="k">Front</span><span class="v">React + Vite</span><p>Zustand pour l'état, Framer Motion pour la donne, les poses et le ramassage.</p></div>
+    <div><span class="k">Données</span><span class="v">En mémoire, sans compte</span><p>Pseudo + code de salon. Le salon retient le durak précédent pour la revanche.</p></div>
+    <div><span class="k">Déploiement</span><span class="v">1 conteneur Docker</span><p>Le serveur Node sert aussi le front buildé. Fly.io, Render ou ton VPS.</p></div>
+  </div>
+
+  <div class="arch">
+<pre>navigateur (React)                      serveur Node (Socket.IO)
+ ├─ rend la vue filtrée          ◄────   état complet de la partie
+ ├─ surligne coups légaux (engine)        ├─ engine.apply(action) → valide / refuse
+ └─ envoie une intention  ───────────►    ├─ diffuse une vue par joueur (mains cachées)
+    {type:"defend", card:"J♠", on:1}      └─ minuteur de tour, reconnexion</pre>
+  </div>
+
+  <div class="notes">
+    <div>
+      <h3>Pourquoi pas autre chose</h3>
+      <ul>
+        <li><b>Colyseus</b> : bon framework de jeu, mais ajoute une couche de schéma pour un jeu dont l'état tient en quelques Ko.</li>
+        <li><b>Firebase / Supabase</b> : la logique d'arbitrage devrait vivre côté client ou en fonctions — plus facile de tricher.</li>
+        <li><b>Pixi / canvas</b> : inutile, 36 cartes en DOM + CSS s'animent très bien et restent accessibles.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Ce qui est inclus en v1</h3>
+      <ul>
+        <li>Créer un salon ou en rejoindre un avec son code, 2 à 6 places.</li>
+        <li>Minuteur de tour (30 s, configurable), reconnexion, revanche.</li>
+        <li>Interface responsive : ordinateur et mobile, glisser-déposer + clic.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Prévu en V2</h3>
+      <ul>
+        <li><b>Bots</b> pour compléter une table ou s'entraîner seul.</li>
+        <li><b>Comptes et stats</b> : historique des parties, nombre de fois durak (ajoute Postgres).</li>
+        <li><b>Matchmaking public</b> : file d'attente pour jouer avec des inconnus.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RÈGLES ============ -->
+<section id="regles">
+  <div class="sec-head">
+    <span class="eyebrow">02 · Règles implémentées</span>
+    <h2>Le PDF, traduit en règles de moteur</h2>
+    <p><span class="tag ok">Clair</span> appliqué tel quel. <span class="tag q">Tranché</span> le PDF laissait une ambiguïté, la lecture retenue est indiquée.</p>
+  </div>
+  <div class="rules">
+    <div class="rule"><div class="t">Paquet & donne</div><div class="d"><span class="tag ok">Clair</span>36 cartes (6 → As), 6 cartes par joueur distribuées 2 par 2. La carte suivante est retournée sous le talon : sa couleur est l'atout.</div></div>
+    <div class="rule"><div class="t">Premier défenseur</div><div class="d"><span class="tag ok">Clair</span>Le durak de la partie précédente, sinon le joueur ayant l'atout le plus faible. <b>Il choisit</b> lequel de ses deux voisins l'attaque (écran dédié ci-dessous).</div></div>
+    <div class="rule"><div class="t">Défense</div><div class="d"><span class="tag ok">Clair</span>Même couleur et rang supérieur, ou n'importe quel atout sur une non-atout. Atout sur atout : rang supérieur uniquement.</div></div>
+    <div class="rule"><div class="t">Attaque une par une</div><div class="d"><span class="tag ok">Clair</span>Une carte est posée, le défenseur la bat, puis on relance. Jamais plusieurs cartes attaquantes en attente à la fois.</div></div>
+    <div class="rule"><div class="t">Relance</div><div class="d"><span class="tag q">Tranché</span>Le PDF dit : même valeur que <b>l'une des deux cartes qui viennent d'être posées</b>. Lecture stricte retenue : seules la dernière attaque et sa défense comptent, pas tout le tapis (la variante classique autorise toute valeur présente sur la table).</div></div>
+    <div class="rule"><div class="t">Qui relance</div><div class="d"><span class="tag ok">Clair</span>L'attaquant d'abord ; s'il passe, les autres joueurs (sauf le défenseur) peuvent relancer dans l'ordre de la table.</div></div>
+    <div class="rule"><div class="t">Fin du pli</div><div class="d"><span class="tag ok">Clair</span>6 attaques contrées, ou plus personne ne relance → défausse. Le défenseur ne peut ou ne veut pas battre → il ramasse toutes les cartes en jeu.<br><em>Ajout de bon sens : on ne relance pas si le défenseur n'a plus de carte en main.</em></div></div>
+    <div class="rule"><div class="t">Carte jouée 3 fois</div><div class="d"><span class="tag q">Tranché</span>« Une même carte ne peut pas être posée 3 fois d'affilée. » Lecture retenue : une carte posée en attaque lors de 2 plis consécutifs (car ramassée entre-temps) ne peut pas ouvrir/relancer au 3ᵉ pli consécutif.</div></div>
+    <div class="rule"><div class="t">Pioche</div><div class="d"><span class="tag ok">Clair</span>Retour à 6 cartes : attaquant → autres joueurs dans l'ordre → défenseur, seulement s'il a tout battu. L'atout retourné est la dernière carte piochée.</div></div>
+    <div class="rule"><div class="t">Tour suivant</div><div class="d"><span class="tag q">Tranché</span>« Le prochain attaquant est le voisin du dernier attaquant, du côté opposé au défenseur. » Lecture retenue : il attaque <b>le dernier attaquant</b> — le jeu tourne toujours dans le même sens, quelle que soit l'issue du pli. À 2 joueurs, les rôles s'inversent à chaque pli.</div></div>
+    <div class="rule"><div class="t">Fin de partie</div><div class="d"><span class="tag ok">Clair</span>Talon vide → on joue avec ce qu'on a. Main vide = sorti (on le saute dans la rotation). Le dernier avec des cartes est le durak.<br><em>Si les deux derniers se vident sur le même pli : pas de durak, égalité.</em></div></div>
+  </div>
+</section>
+
+<!-- ============ MAQUETTES ============ -->
+<section id="maquettes">
+  <div class="sec-head">
+    <span class="eyebrow">03 · Maquettes</span>
+    <h2>Un tapis vert-bleu, des cartes ivoire, l'or pour ce qui est jouable</h2>
+    <p>Direction : une table de cuisine soviétique devenue salon de jeu — feutre sarcelle profond, dos de cartes rouge laqué, accents laiton. Le doré ne sert qu'à une chose : montrer ce que tu peux faire maintenant.</p>
+  </div>
+
+  <figure class="shot">
+    <div class="screen home">
+      <div>
+        <div class="fan" id="fan"></div>
+        <h4>Durak</h4>
+        <div class="sub">Ne sois pas le dernier avec des cartes en main.</div>
+      </div>
+      <div class="panel">
+        <label class="field" for="m-pseudo">Ton pseudo<input id="m-pseudo" class="input" value="Tanguy" readonly></label>
+        <button class="btn primary" type="button">Créer un salon</button>
+        <div class="or">ou rejoindre</div>
+        <label class="field" for="m-code">Code du salon<input id="m-code" class="input mono" value="K7P-2QX" readonly></label>
+        <button class="btn ghost" type="button">Rejoindre</button>
+        <div style="font-size:12px;color:rgba(248,244,234,.55)">Règles du jeu</div>
+      </div>
+    </div>
+    <figcaption><b>Accueil.</b> Pas de compte en V1 : un pseudo, puis créer un salon ou saisir le code reçu d'un ami.</figcaption>
+  </figure>
+
+  <figure class="shot">
+    <div class="screen lobby">
+      <div class="top">
+        <div><div class="logo" style="font-size:22px">Salon</div><div style="font-size:13px;color:rgba(248,244,234,.7)">Donne ce code à tes amis pour qu'ils rejoignent</div></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="code">K7P-2QX</span><button class="btn ghost" type="button">Copier le code</button></div>
+      </div>
+      <div class="seats">
+        <div class="seat"><span class="av" style="background:#d8ae55;color:#2a1d05">T</span><div>Tanguy <small>Hôte · prêt</small></div></div>
+        <div class="seat"><span class="av" style="background:#6fa8a6;color:#082022">L</span><div>Léa <small>Prête</small></div></div>
+        <div class="seat"><span class="av" style="background:#c9463c;color:#fff">M</span><div>Marc <small>Durak de la dernière partie</small></div></div>
+        <div class="seat"><span class="av" style="background:#4b5d8a;color:#fff">I</span><div>Ivan <small>Pas encore prêt</small></div></div>
+        <div class="seat empty">Place libre</div>
+        <div class="seat empty">Place libre</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div style="font-size:13px;color:rgba(248,244,234,.7)">Minuteur : 30 s par action · L'ordre des places = l'ordre de la table</div>
+        <button class="btn primary" type="button">Lancer la partie (4 joueurs)</button>
+      </div>
+    </div>
+    <figcaption><b>Salon d'attente.</b> 6 places, glisser pour réordonner. Le salon garde le durak précédent : à la revanche, c'est lui qui défend en premier.</figcaption>
+  </figure>
+
+  <figure class="shot">
+    <div class="scroll">
+      <div class="screen table" id="table">
+        <div class="topbar">
+          <span class="logo" style="font-size:20px">Durak</span>
+          <span style="display:flex;gap:8px"><span class="pill">Atout ♥</span><span class="pill">Salon K7P-2QX</span><span class="pill">⚙</span></span>
+        </div>
+
+        <div class="opp" style="left:110px;top:56px"><div class="backs" data-n="5"></div><div class="name"><span class="av" style="background:#4b5d8a;color:#fff">I</span>Ivan <span class="role wait">attend</span></div></div>
+        <div class="opp active" style="left:405px;top:44px"><div class="backs" data-n="4"></div><div class="name"><span class="av" style="background:#6fa8a6;color:#082022">L</span>Léa <span class="role att">attaque</span></div></div>
+        <div class="opp" style="left:700px;top:56px"><div class="backs" data-n="6"></div><div class="name"><span class="av" style="background:#c9463c;color:#fff">M</span>Marc <span class="role wait">peut relancer</span></div></div>
+
+        <div class="deck">
+          <div class="trumpc" id="trumpc"></div>
+          <div class="pile" id="pile"></div>
+          <div class="cnt">Talon : 14 cartes</div>
+        </div>
+
+        <div class="center">
+          <div class="counter"><span class="pill">Attaque 3 / 6</span><div class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div>
+          <div class="pairs" id="pairs"></div>
+        </div>
+
+        <div class="discard"><div class="stackd" id="disc"></div>Défausse : 8</div>
+
+        <div class="log">
+          <span><b>Léa</b> attaque 7♣</span>
+          <span><b>Toi</b> bats avec 10♣</span>
+          <span><b>Léa</b> relance 10♠</span>
+          <span><b>Toi</b> bats avec J♠</span>
+          <span><b>Léa</b> relance J♦</span>
+        </div>
+
+        <div class="me">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="name" style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600"><span class="av" style="background:#d8ae55;color:#2a1d05;box-shadow:0 0 0 3px var(--glow)">T</span>Toi <span class="role def">défends</span></div>
+            <div class="hand" id="hand"></div>
+          </div>
+          <div class="actions">
+            <div class="prompt">Bats le <b>J♦</b> : un carreau plus fort ou un atout ♥.</div>
+            <div class="timer"><i></i></div>
+            <div style="display:flex;gap:8px"><button class="btn danger" type="button">Ramasser</button><button class="btn primary" type="button">Battre avec Q♦</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Table, vue défenseur (ordinateur).</b> Les adversaires en arc, le talon avec l'atout couché dessous, le tapis au centre avec le compteur d'attaques. La carte à battre est cerclée de rouge ; dans ta main, seules les cartes qui peuvent la battre se soulèvent (Q♦, 8♥, K♥) — les autres sont assombries. Tu cliques ou tu glisses la carte sur le tapis.</figcaption>
+  </figure>
+
+  <div class="row2">
+    <figure class="shot">
+      <div class="phone"><div class="screen">
+        <div class="m-opps">
+          <div class="m-opp"><span class="av" style="background:#4b5d8a;color:#fff">I</span>Ivan<span class="n">5 cartes</span></div>
+          <div class="m-opp"><span class="av" style="background:#6fa8a6;color:#082022;box-shadow:0 0 0 3px var(--gold)">L</span>Léa<span class="role def">défend</span></div>
+          <div class="m-opp"><span class="av" style="background:#c9463c;color:#fff">M</span>Marc<span class="n">6 cartes</span></div>
+        </div>
+        <div class="m-mid">
+          <span class="tr"><span id="mtrump"></span>Talon 14</span>
+          <span class="pill">Attaque 2 / 6</span>
+          <span>Défausse 8</span>
+        </div>
+        <div class="m-table" id="mtable"></div>
+        <div class="m-bottom">
+          <div class="prompt" style="font-size:12.5px;max-width:none">Léa a battu. Relance avec un <b>9</b> ou un <b>Q</b>, ou passe la main à Marc.</div>
+          <div class="m-hand" id="mhand"></div>
+          <div class="m-actions"><button class="btn ghost" type="button">Passer</button><button class="btn primary" type="button">Relancer Q♣</button></div>
+        </div>
+      </div></div>
+      <figcaption><b>Mobile, vue attaquant.</b> Même table, empilée verticalement. Relance stricte : seules les valeurs des deux dernières cartes posées (9♠ et Q♠) sont proposées.</figcaption>
+    </figure>
+
+    <div style="display:flex;flex-direction:column;gap:28px">
+      <figure class="shot">
+        <div class="screen" style="height:330px">
+          <div class="overlay">
+            <div class="modal">
+              <h5>Tu défends en premier</h5>
+              <p>Tu as l'atout le plus faible : <b style="color:var(--glow)">6♥</b>. Choisis lequel de tes voisins t'attaque.</p>
+              <div class="choices">
+                <div class="choice"><span class="av" style="background:#4b5d8a;color:#fff">I</span>Ivan<small style="font-weight:400;color:rgba(248,244,234,.6)">à ta gauche</small></div>
+                <div class="choice"><span class="av" style="background:#c9463c;color:#fff">M</span>Marc<small style="font-weight:400;color:rgba(248,244,234,.6)">à ta droite</small></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Début de partie.</b> Règle propre à ton PDF : c'est le premier défenseur qui choisit son attaquant. Les autres voient « Tanguy choisit son attaquant… ».</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <div class="screen" style="height:340px">
+          <div class="overlay" style="background:transparent">
+            <div class="modal">
+              <div class="card back" style="--w:40px;margin:0 auto;transform:rotate(-8deg)"></div>
+              <h5>Marc est le durak</h5>
+              <div class="rank">
+                <div><span class="pos">1</span>Léa · sortie au pli 14</div>
+                <div><span class="pos">2</span>Tanguy · sorti au pli 17</div>
+                <div><span class="pos">3</span>Ivan · sorti au pli 19</div>
+                <div class="durak"><span class="pos">✕</span>Marc · 4 cartes en main</div>
+              </div>
+              <div style="display:flex;gap:8px;justify-content:center"><button class="btn ghost" type="button">Quitter</button><button class="btn primary" type="button">Revanche</button></div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Fin de partie.</b> Ordre de sortie, puis le durak. « Revanche » relance dans le même salon, Marc défendra en premier.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+const RED = {"♥":1,"♦":1};
+function card(code, cls=""){
+  if(code==="back") return `<div class="card back ${cls}"></div>`;
+  const s = code.slice(-1), r = code.slice(0,-1);
+  return `<div class="card ${RED[s]?"red":""} ${s==="♥"?"trump":""} ${cls}"><span class="r">${r}</span><span class="s1">${s}</span><span class="c">${s}</span></div>`;
+}
+const $ = id => document.getElementById(id);
+
+// Accueil : éventail
+const fan = ["7♣","10♦","Q♠","K♥","A♥"];
+$("fan").innerHTML = fan.map((c,i)=>card(c)).join("");
+[...$("fan").children].forEach((el,i)=>{el.style.transform=`translateX(-50%) rotate(${(i-2)*13}deg)`;});
+
+// Adversaires
+document.querySelectorAll(".backs").forEach(b=>{b.innerHTML=Array(+b.dataset.n).fill(card("back")).join("");});
+
+// Talon
+$("trumpc").innerHTML = card("9♥");
+$("pile").innerHTML = [0,1,2].map(i=>card("back").replace('class="card back ','class="card back " style="left:'+i*2+'px;top:'+(-i*2)+'px" data-x="')).join("");
+$("disc").innerHTML = [0,1,2].map(i=>card("back").replace('class="card back ','class="card back " style="transform:rotate('+(i*9-8)+'deg)" data-x="')).join("");
+
+// Tapis desktop
+const pairs = [["7♣","10♣"],["10♠","J♠"],["J♦",null]];
+$("pairs").innerHTML = pairs.map(([a,d])=>`<div class="pair">${card(a, d?"":"target")}${d?card(d):""}</div>`).join("") + `<div class="pair slot"></div><div class="pair slot"></div><div class="pair slot"></div>`;
+
+// Main du défenseur
+const hand = [["6♠","dim"],["8♣","dim"],["Q♦","sel"],["A♣","dim"],["8♥","play"],["K♥","play"]];
+$("hand").innerHTML = hand.map(([c,k])=>card(c,k)).join("");
+
+// Mobile
+$("mtrump").innerHTML = card("9♥").replace('class="card','style="--w:22px" class="card');
+$("mtable").innerHTML = [["8♠","9♠"],["9♣","Q♠"]].map(([a,d])=>`<div class="pair">${card(a)}${card(d)}</div>`).join("") + `<div class="pair slot"></div>`;
+const mh = [["7♦","dim"],["9♦","play"],["Q♣","sel"],["10♥","dim"],["A♠","dim"],["J♥","dim"]];
+$("mhand").innerHTML = mh.map(([c,k])=>card(c,k)).join("");
+</script>

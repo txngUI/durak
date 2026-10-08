@@ -1,0 +1,59 @@
+import { Modal } from './Modal';
+
+export function Rules({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal wide onClose={onClose} label="Règles du Durak">
+      <h2>Règles du Durak</h2>
+      <p>
+        Jeu de cartes russe, de 2 à 6 joueurs, avec 36 cartes (du 6 à l’As). Le dernier joueur avec des cartes en main est
+        le <i>durak</i> : l’idiot.
+      </p>
+      <h3>Valeur des cartes</h3>
+      <p>6 · 7 · 8 · 9 · 10 · J · Q · K · A. L’atout bat toujours une carte non-atout.</p>
+      <h3>Mise en place</h3>
+      <ul>
+        <li>6 cartes par joueur, distribuées 2 par 2.</li>
+        <li>La carte suivante est retournée sous le talon : sa couleur est l’atout.</li>
+        <li>
+          Le durak de la partie précédente défend en premier, sinon le joueur ayant l’atout le plus faible. Il choisit
+          lequel de ses deux voisins l’attaque.
+        </li>
+      </ul>
+      <h3>Un pli</h3>
+      <ul>
+        <li>L’attaquant pose une carte devant le défenseur.</li>
+        <li>
+          Le défenseur la bat avec une carte de même couleur et plus forte, ou avec un atout (un atout ne bat un atout que
+          s’il est plus fort).
+        </li>
+        <li>
+          L’attaquant peut relancer avec une carte de même valeur que l’une des deux cartes qui viennent d’être posées. S’il
+          ne peut ou ne veut pas, les autres joueurs peuvent prendre le relais dans l’ordre de la table.
+        </li>
+        <li>6 attaques contrées, ou plus personne ne relance : les cartes vont à la défausse.</li>
+        <li>Si le défenseur ne peut ou ne veut pas battre une carte, il ramasse toutes les cartes en jeu.</li>
+        <li>Une même carte ne peut pas être posée en attaque sur 3 plis d’affilée.</li>
+      </ul>
+      <h3>Pioche et tour suivant</h3>
+      <ul>
+        <li>
+          Chacun complète sa main à 6 cartes : attaquant, puis les autres joueurs, puis le défenseur s’il a tout battu.
+        </li>
+        <li>
+          Le prochain attaquant est le voisin du dernier attaquant, du côté opposé au défenseur ; il attaque le dernier
+          attaquant.
+        </li>
+      </ul>
+      <h3>Fin de partie</h3>
+      <ul>
+        <li>Talon épuisé : on continue avec les cartes en main. Le premier à vider sa main gagne.</li>
+        <li>Le dernier joueur à avoir encore des cartes est le durak. Si les deux derniers se vident ensemble : égalité.</li>
+      </ul>
+      <div className="buttons">
+        <button type="button" className="btn primary" onClick={onClose}>
+          Compris
+        </button>
+      </div>
+    </Modal>
+  );
+}
