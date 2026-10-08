@@ -1,0 +1,12 @@
+# Bloc à ajouter au Caddyfile existant du VPS.
+# Caddy obtient le certificat HTTPS tout seul et gère les WebSockets sans configuration.
+
+durak.tanguydavid.fr {
+	encode zstd gzip
+	reverse_proxy localhost:3010
+}
+
+# Variante si Caddy tourne lui-même dans un conteneur Docker : `localhost` désigne
+# alors le conteneur de Caddy, pas le VPS. Mets Caddy et durak sur le même réseau
+# Docker et remplace la ligne par :
+#	reverse_proxy durak:3000

@@ -1,0 +1,14 @@
+# À copier sur le VPS dans ~/durak/docker-compose.yml
+services:
+  durak:
+    image: ghcr.io/txngui/durak:latest
+    container_name: durak
+    restart: unless-stopped
+    # Accessible uniquement depuis le VPS : c'est Caddy qui l'expose en HTTPS.
+    ports:
+      - "127.0.0.1:3010:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3

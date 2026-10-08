@@ -48,6 +48,8 @@ docker build -t durak .
 docker run -p 3000:3000 durak
 ```
 
+Pour la mise en ligne sur le VPS (Caddy + déploiement automatique depuis GitHub), suis [deploy/README.md](deploy/README.md).
+
 Un seul processus Node sert le front buildé et le temps réel sur le port `PORT` (3000 par défaut). Les salons sont en mémoire : un redémarrage du serveur les efface.
 
 ## Organisation
