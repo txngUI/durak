@@ -13,7 +13,7 @@ export function Rules({ onClose }: { onClose: () => void }) {
       <h3>Mise en place</h3>
       <ul>
         <li>6 cartes par joueur, distribuées 2 par 2.</li>
-        <li>La carte suivante est retournée sous le talon : sa couleur est l’atout.</li>
+        <li>La carte suivante est retournée sous la pioche : sa couleur est l’atout.</li>
         <li>
           Le durak de la partie précédente défend en premier, sinon le joueur ayant l’atout le plus faible. Il choisit
           lequel de ses deux voisins l’attaque.
@@ -47,7 +47,7 @@ export function Rules({ onClose }: { onClose: () => void }) {
       </ul>
       <h3>Fin de partie</h3>
       <ul>
-        <li>Talon épuisé : on continue avec les cartes en main. Le premier à vider sa main gagne.</li>
+        <li>Pioche vide : on continue avec les cartes en main. Le premier à vider sa main gagne.</li>
         <li>
           Le dernier joueur à avoir encore des cartes est le durak. Il n’y a pas d’égalité : si l’attaquant et le
           défenseur se vident sur le même pli, le défenseur est le durak.

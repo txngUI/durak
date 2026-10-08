@@ -208,6 +208,16 @@ describe('résolution du pli', () => {
     expect(s.deck).toHaveLength(0);
   });
 
+  it('retient qui a pioché combien de cartes, dans l’ordre', () => {
+    const s0 = setup({ hands: ['8C KD', '7C 9H', 'QS'], deck: '6H JC QC AS 10D 7D 8D 9D 6S', trump: 'H', attacker: 1, defender: 0 });
+    const s = play(s0, [1, atk('7C')], [0, def('8C')]);
+    // L'attaquant complète à 6, puis P2 prend les 4 dernières ; le défenseur n'a plus rien à piocher.
+    expect(s.lastRound!.draws).toEqual([
+      { p: 1, n: 5 },
+      { p: 2, n: 4 },
+    ]);
+  });
+
   it('pioche dans l’ordre attaquant → autres → défenseur', () => {
     const s0 = setup({
       hands: ['AS', '6S 6C'],

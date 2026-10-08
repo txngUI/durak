@@ -79,6 +79,8 @@ export interface LastRound {
   table: TablePair[];
   defender: number;
   outcome: 'discard' | 'take';
+  /** Cartes piochées après le pli, dans l'ordre de la pioche. */
+  draws: { p: number; n: number }[];
 }
 
 export type Action =
@@ -293,7 +295,7 @@ function nextRelance(s: GameState) {
 function endRound(s: GameState, defended: boolean) {
   const cards = s.table.flatMap((pair) => (pair.defense ? [pair.attack, pair.defense] : [pair.attack]));
   if (s.table.length > 0) {
-    s.lastRound = { round: s.round, table: s.table, defender: s.defender, outcome: defended ? 'discard' : 'take' };
+    s.lastRound = { round: s.round, table: s.table, defender: s.defender, outcome: defended ? 'discard' : 'take', draws: [] };
   }
   if (defended) {
     if (cards.length > 0) {
@@ -310,10 +312,14 @@ function endRound(s: GameState, defended: boolean) {
   // Pioche : attaquant, autres joueurs dans l'ordre, puis défenseur s'il a tout battu.
   const drawOrder = throwerOrder(s);
   if (defended) drawOrder.push(s.defender);
+  const draws: { p: number; n: number }[] = [];
   for (const p of drawOrder) {
     const hand = s.players[p].hand;
+    const before = hand.length;
     while (hand.length < HAND_SIZE && s.deck.length > 0) hand.push(s.deck.pop()!);
+    if (hand.length > before) draws.push({ p, n: hand.length - before });
   }
+  if (s.lastRound?.round === s.round) s.lastRound.draws = draws;
 
   // Talon vide : ceux qui n'ont plus de cartes sortent du jeu.
   if (s.deck.length === 0) {

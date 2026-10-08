@@ -9,6 +9,7 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
   const isHost = room.you === room.hostId;
   const [copied, setCopied] = useState(false);
   const count = room.players.length;
+  const waiting = room.players.filter((p) => p.inResults).map((p) => p.name);
 
   const copy = async () => {
     try {
@@ -63,9 +64,10 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
               p.id === room.you ? 'toi' : null,
               p.id === room.lastDurakId ? 'durak de la dernière partie' : null,
               !p.connected ? 'déconnecté' : null,
+              p.inResults ? 'regarde encore les résultats…' : null,
             ].filter(Boolean);
             return (
-              <motion.li layout key={p.id} className="seat">
+              <motion.li layout key={p.id} className={`seat ${p.inResults ? 'away-seat' : ''}`}>
                 <span className={`av ${p.connected ? '' : 'away'}`} style={{ background: bg, color: fg }}>
                   {initial(p.name)}
                 </span>
@@ -127,8 +129,17 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
               Quitter
             </button>
             {isHost ? (
-              <button type="button" className="btn primary" disabled={count < MIN_PLAYERS} onClick={() => start()}>
-                {count < MIN_PLAYERS ? 'En attente d’un 2e joueur' : `Lancer la partie (${count} joueurs)`}
+              <button
+                type="button"
+                className="btn primary"
+                disabled={count < MIN_PLAYERS || waiting.length > 0}
+                onClick={() => start()}
+              >
+                {waiting.length > 0
+                  ? `En attente de ${waiting.join(', ')}…`
+                  : count < MIN_PLAYERS
+                    ? 'En attente d’un 2e joueur'
+                    : `Lancer la partie (${count} joueurs)`}
               </button>
             ) : (
               <span className="hint" style={{ alignSelf: 'center' }}>

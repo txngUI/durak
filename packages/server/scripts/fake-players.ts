@@ -27,7 +27,12 @@ for (let i = 0; i < Number(countArg); i++) {
   socket.on('room:state', (room: RoomView) => {
     const v = room.game;
     if (pending) clearTimeout(pending);
-    if (!v || v.actor !== v.you || v.phase === 'finished') return;
+    // Fin de partie : regarde les résultats quelques secondes puis revient au salon.
+    if (v?.phase === 'finished') {
+      pending = setTimeout(() => socket.emit('room:toLobby', () => {}), 4000 + Math.random() * 4000);
+      return;
+    }
+    if (!v || v.actor !== v.you) return;
     pending = setTimeout(() => {
       const moves: Action[] = [
         ...v.legal.chooseTargets.map((target) => ({ type: 'chooseAttacker', target }) as Action),

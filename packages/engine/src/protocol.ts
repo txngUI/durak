@@ -12,6 +12,8 @@ export interface RoomPlayer {
   id: string;
   name: string;
   connected: boolean;
+  /** Regarde encore l'écran de fin de la partie précédente. */
+  inResults: boolean;
 }
 
 export interface RoomSettings {

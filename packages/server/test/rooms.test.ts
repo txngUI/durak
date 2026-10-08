@@ -113,4 +113,40 @@ describe('salons', () => {
     rooms.start(room, a.id);
     expect(room.game!.defender).toBe(1);
   });
+
+  it('chacun garde l’écran de fin jusqu’à son retour au salon, l’hôte attend tout le monde', () => {
+    const { rooms } = setup();
+    const { room, member: a } = rooms.create('A');
+    const { member: b } = rooms.join(room.code, 'B');
+    rooms.start(room, a.id);
+    // Fin de partie simulée : B est le durak.
+    room.game = { ...room.game!, phase: 'finished', durak: 1, actor: -1 };
+    for (const m of room.members) m.inResults = true;
+
+    rooms.toLobby(room, a.id);
+    expect(rooms.viewFor(room, a.id).status).toBe('lobby');
+    expect(rooms.viewFor(room, b.id).status).toBe('playing');
+    expect(rooms.viewFor(room, a.id).players.find((p) => p.id === b.id)?.inResults).toBe(true);
+    expect(() => rooms.start(room, a.id)).toThrow(/En attente de B/);
+
+    // Un nouveau venu peut rejoindre pendant que B regarde encore les résultats.
+    rooms.join(room.code, 'C');
+    rooms.toLobby(room, b.id);
+    expect(room.game).toBeNull();
+    rooms.start(room, a.id);
+    expect(room.game!.players).toHaveLength(3);
+  });
+
+  it('un joueur déconnecté sur l’écran de fin ne bloque pas la suite', () => {
+    const { rooms } = setup();
+    const { room, member: a } = rooms.create('A');
+    const { member: b } = rooms.join(room.code, 'B');
+    rooms.start(room, a.id);
+    room.game = { ...room.game!, phase: 'finished', durak: 0, actor: -1 };
+    for (const m of room.members) m.inResults = true;
+    rooms.toLobby(room, a.id);
+    rooms.disconnect(room, b.id);
+    expect(room.game).toBeNull();
+    expect(() => rooms.start(room, a.id)).not.toThrow();
+  });
 });

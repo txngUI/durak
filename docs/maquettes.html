@@ -286,7 +286,7 @@ figure{margin:0}
     <p><span class="tag ok">Clair</span> appliqué tel quel. <span class="tag q">Tranché</span> le PDF laissait une ambiguïté, la lecture retenue est indiquée.</p>
   </div>
   <div class="rules">
-    <div class="rule"><div class="t">Paquet & donne</div><div class="d"><span class="tag ok">Clair</span>36 cartes (6 → As), 6 cartes par joueur distribuées 2 par 2. La carte suivante est retournée sous le talon : sa couleur est l'atout.</div></div>
+    <div class="rule"><div class="t">Paquet & donne</div><div class="d"><span class="tag ok">Clair</span>36 cartes (6 → As), 6 cartes par joueur distribuées 2 par 2. La carte suivante est retournée sous la pioche : sa couleur est l'atout.</div></div>
     <div class="rule"><div class="t">Premier défenseur</div><div class="d"><span class="tag ok">Clair</span>Le durak de la partie précédente, sinon le joueur ayant l'atout le plus faible. <b>Il choisit</b> lequel de ses deux voisins l'attaque (écran dédié ci-dessous).</div></div>
     <div class="rule"><div class="t">Défense</div><div class="d"><span class="tag ok">Clair</span>Même couleur et rang supérieur, ou n'importe quel atout sur une non-atout. Atout sur atout : rang supérieur uniquement.</div></div>
     <div class="rule"><div class="t">Attaque une par une</div><div class="d"><span class="tag ok">Clair</span>Une carte est posée, le défenseur la bat, puis on relance. Jamais plusieurs cartes attaquantes en attente à la fois.</div></div>
@@ -296,7 +296,7 @@ figure{margin:0}
     <div class="rule"><div class="t">Carte jouée 3 fois</div><div class="d"><span class="tag q">Tranché</span>« Une même carte ne peut pas être posée 3 fois d'affilée. » Lecture retenue : une carte posée en attaque lors de 2 plis consécutifs (car ramassée entre-temps) ne peut pas ouvrir/relancer au 3ᵉ pli consécutif.</div></div>
     <div class="rule"><div class="t">Pioche</div><div class="d"><span class="tag ok">Clair</span>Retour à 6 cartes : attaquant → autres joueurs dans l'ordre → défenseur, seulement s'il a tout battu. L'atout retourné est la dernière carte piochée.</div></div>
     <div class="rule"><div class="t">Tour suivant</div><div class="d"><span class="tag q">Tranché</span>« Le prochain attaquant est le voisin du dernier attaquant, du côté opposé au défenseur. » Lecture retenue : il attaque <b>le dernier attaquant</b> — le jeu tourne toujours dans le même sens, quelle que soit l'issue du pli. À 2 joueurs, les rôles s'inversent à chaque pli.</div></div>
-    <div class="rule"><div class="t">Fin de partie</div><div class="d"><span class="tag ok">Clair</span>Talon vide → on joue avec ce qu'on a. Main vide = sorti (on le saute dans la rotation). Le dernier avec des cartes est le durak.<br><em>Si les deux derniers se vident sur le même pli : pas de durak, égalité.</em></div></div>
+    <div class="rule"><div class="t">Fin de partie</div><div class="d"><span class="tag ok">Clair</span>Pioche vide → on joue avec ce qu'on a. Main vide = sorti (on le saute dans la rotation). Le dernier avec des cartes est le durak.<br><em>Si les deux derniers se vident sur le même pli : pas de durak, égalité.</em></div></div>
   </div>
 </section>
 
@@ -364,7 +364,7 @@ figure{margin:0}
         <div class="deck">
           <div class="trumpc" id="trumpc"></div>
           <div class="pile" id="pile"></div>
-          <div class="cnt">Talon : 14 cartes</div>
+          <div class="cnt">Pioche : 14 cartes</div>
         </div>
 
         <div class="center">
@@ -395,7 +395,7 @@ figure{margin:0}
         </div>
       </div>
     </div>
-    <figcaption><b>Table, vue défenseur (ordinateur).</b> Les adversaires en arc, le talon avec l'atout couché dessous, le tapis au centre avec le compteur d'attaques. La carte à battre est cerclée de rouge ; dans ta main, seules les cartes qui peuvent la battre se soulèvent (Q♦, 8♥, K♥) — les autres sont assombries. Tu cliques ou tu glisses la carte sur le tapis.</figcaption>
+    <figcaption><b>Table, vue défenseur (ordinateur).</b> Les adversaires en arc, la pioche avec l'atout couché dessous, le tapis au centre avec le compteur d'attaques. La carte à battre est cerclée de rouge ; dans ta main, seules les cartes qui peuvent la battre se soulèvent (Q♦, 8♥, K♥) — les autres sont assombries. Tu cliques ou tu glisses la carte sur le tapis.</figcaption>
   </figure>
 
   <div class="row2">
@@ -407,7 +407,7 @@ figure{margin:0}
           <div class="m-opp"><span class="av" style="background:#c9463c;color:#fff">M</span>Marc<span class="n">6 cartes</span></div>
         </div>
         <div class="m-mid">
-          <span class="tr"><span id="mtrump"></span>Talon 14</span>
+          <span class="tr"><span id="mtrump"></span>Pioche 14</span>
           <span class="pill">Attaque 2 / 6</span>
           <span>Défausse 8</span>
         </div>
@@ -479,7 +479,7 @@ $("fan").innerHTML = fan.map((c,i)=>card(c)).join("");
 // Adversaires
 document.querySelectorAll(".backs").forEach(b=>{b.innerHTML=Array(+b.dataset.n).fill(card("back")).join("");});
 
-// Talon
+// Pioche
 $("trumpc").innerHTML = card("9♥");
 $("pile").innerHTML = [0,1,2].map(i=>card("back").replace('class="card back ','class="card back " style="left:'+i*2+'px;top:'+(-i*2)+'px" data-x="')).join("");
 $("disc").innerHTML = [0,1,2].map(i=>card("back").replace('class="card back ','class="card back " style="transform:rotate('+(i*9-8)+'deg)" data-x="')).join("");

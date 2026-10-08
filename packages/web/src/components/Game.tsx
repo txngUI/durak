@@ -1,8 +1,9 @@
 import { type Card, type LastRound, type PlayerView, type RoomView, SUIT_SYMBOL, cardLabel } from '@durak/engine';
-import { AnimatePresence, type PanInfo, motion } from 'motion/react';
+import { AnimatePresence, type PanInfo, type TargetAndTransition, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { avatarColors, cardKey, initial, logText, promptFor, sameCard } from '../format';
 import { useStore } from '../store';
+import { FLIGHT_SECONDS, type Flight, Flights } from './Flights';
 import { Modal } from './Modal';
 import { PlayingCard } from './PlayingCard';
 
@@ -11,11 +12,17 @@ type Exit = 'take' | 'discard';
 /** Durée d'affichage des cartes d'un pli terminé avant qu'elles partent. */
 const LINGER_MS = 2400;
 
-const pairVariants = {
-  exit: (kind: Exit) =>
-    kind === 'take'
-      ? { opacity: 0, y: -160, scale: 0.6, transition: { duration: 0.45 } }
-      : { opacity: 0, x: 280, rotate: 18, transition: { duration: 0.45 } },
+/** Durée du vol des cartes d'un pli vers la défausse ou vers celui qui ramasse. */
+const EXIT_SECONDS = 0.5;
+
+const center = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+/** Rectangle du premier élément réellement affiché (certains sont masqués sur mobile). */
+const visibleRect = (...els: (Element | null | undefined)[]) => {
+  for (const el of els) {
+    const r = el?.getBoundingClientRect();
+    if (r && r.width > 0 && r.height > 0) return r;
+  }
+  return null;
 };
 
 function useViewport() {
@@ -33,11 +40,10 @@ const clamp = (min: number, v: number, max: number) => Math.max(min, Math.min(ma
 
 export function Game({ room, onRules }: { room: RoomView; onRules: () => void }) {
   const v = room.game!;
-  const { act, leave, start, toLobby } = useStore();
+  const { act, leave, toLobby } = useStore();
   const clockOffset = useStore((s) => s.clockOffset);
   const name = (p: number) => v.players[p]?.name ?? '?';
   const connected = (p: number) => room.players.find((x) => x.id === room.gamePlayerIds[p])?.connected ?? false;
-  const isHost = room.you === room.hostId;
   const n = v.players.length;
   const me = v.players[v.you];
 
@@ -71,17 +77,14 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
   // --- Événements marquants (bandeau) et sens de sortie des cartes ----------
   const prevLog = useRef(v.logSize);
   const [flash, setFlash] = useState<string | null>(null);
-  const [exitKind, setExitKind] = useState<Exit>('discard');
   useLayoutEffect(() => {
     const fresh = v.log.slice(-Math.min(v.logSize - prevLog.current, v.log.length));
     prevLog.current = v.logSize;
     if (fresh.length === 0) return;
     let message: string | null = null;
     for (const e of fresh) {
-      if (e.t === 'take') {
-        setExitKind('take');
-      } else if (e.t === 'discard') {
-        setExitKind('discard');
+      if (e.t === 'out' && e.place === 0) {
+        message = e.p === v.you ? 'Tu es le Korol !' : `${name(e.p)} est le Korol !`;
       } else if (e.t === 'out' && v.phase !== 'finished') {
         message = e.p === v.you ? 'Tu es sorti !' : `${name(e.p)} est sorti !`;
       }
@@ -95,21 +98,139 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
     return () => clearTimeout(t);
   }, [flash]);
 
-  // --- Pli terminé : on laisse ses cartes visibles un instant ---------------
+  // --- Animations : fin de pli, défausse, ramassage, pioche, donne ----------
+  const reduceMotion = useReducedMotion();
+  const deckAnchorRef = useRef<HTMLDivElement>(null);
+  const mobileDeckRef = useRef<HTMLDivElement>(null);
+  const discardRef = useRef<HTMLDivElement>(null);
+  const discardTextRef = useRef<HTMLSpanElement>(null);
+  const handRef = useRef<HTMLDivElement>(null);
+  const oppEls = useRef(new Map<number, HTMLElement>());
+  const pairEls = useRef(new Map<string, HTMLElement>());
+  const handEls = useRef(new Map<string, HTMLElement>());
+
+  // Cartes de ta main gardées invisibles jusqu'à l'arrivée de leur animation.
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  const reveal = (keys: string[]) =>
+    setHidden((h) => {
+      const next = new Set(h);
+      for (const k of keys) next.delete(k);
+      return next;
+    });
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const flightSeq = useRef(0);
+  type PendingDraw = { draws: { p: number; n: number }[]; mine: string[]; taken: string[] };
+  const pendingDraw = useRef<PendingDraw | null>(null);
+  const exitInfo = useRef<{ kind: Exit; defender: number }>({ kind: 'discard', defender: -1 });
+
+  /** Lance le vol des cartes piochées, de la pioche vers chaque joueur, dans l'ordre de pioche. */
+  const launchDraws = (pd: PendingDraw, startDelay: number) => {
+    setTimeout(() => reveal(pd.taken), (startDelay * 1000) / 2);
+    const from = visibleRect(deckAnchorRef.current, mobileDeckRef.current);
+    if (!from) {
+      reveal(pd.mine);
+      return;
+    }
+    const out: Flight[] = [];
+    let i = 0;
+    let mineIdx = 0;
+    for (const d of pd.draws) {
+      for (let k = 0; k < d.n; k++) {
+        const id = `f${++flightSeq.current}`;
+        const delay = startDelay + i++ * 0.1;
+        if (d.p === v.you) {
+          const key = pd.mine[mineIdx++];
+          const to = visibleRect(key ? handEls.current.get(key) : null, handRef.current);
+          if (to) out.push({ id, from, to, delay, fade: false, reveal: key });
+          else if (key) reveal([key]);
+        } else {
+          const to = visibleRect(oppEls.current.get(d.p));
+          if (to) out.push({ id, from, to, delay, fade: true });
+        }
+      }
+    }
+    reveal(pd.mine.slice(mineIdx));
+    setFlights((f) => [...f, ...out]);
+  };
+
+  // Donne de début de partie : 6 cartes à chacun, 2 par 2.
+  useEffect(() => {
+    if (reduceMotion || v.round !== 1 || v.lastRound || v.table.length || v.logSize > 2) return;
+    const mine = v.hand.map(cardKey);
+    setHidden(new Set(mine));
+    const draws = [0, 1, 2].flatMap(() => v.players.map((_, p) => ({ p, n: 2 })));
+    // Laisse le temps aux éléments de se placer avant de mesurer.
+    const t = setTimeout(() => launchDraws({ draws, mine, taken: [] }, 0.1), 50);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Pli terminé : on garde ses cartes visibles un instant, puis elles partent et on pioche.
   const [linger, setLinger] = useState<LastRound | null>(null);
   const seenRound = useRef(v.lastRound?.round ?? 0);
-  useEffect(() => {
-    if (!v.lastRound || v.lastRound.round === seenRound.current) return;
-    seenRound.current = v.lastRound.round;
-    setLinger(v.lastRound);
+  const prevHand = useRef(new Set(v.hand.map(cardKey)));
+  useLayoutEffect(() => {
+    const lr = v.lastRound;
+    if (!lr || lr.round === seenRound.current) return;
+    seenRound.current = lr.round;
+    exitInfo.current = { kind: lr.outcome, defender: lr.defender };
+    const fresh = v.hand.map(cardKey).filter((k) => !prevHand.current.has(k));
+    const tableKeys = new Set(lr.table.flatMap((p) => (p.defense ? [p.attack, p.defense] : [p.attack])).map(cardKey));
+    const taken = lr.outcome === 'take' && lr.defender === v.you ? fresh.filter((k) => tableKeys.has(k)) : [];
+    if (!reduceMotion && v.phase !== 'finished') {
+      setHidden(new Set(fresh));
+      pendingDraw.current = { draws: lr.draws, mine: fresh.filter((k) => !taken.includes(k)), taken };
+    }
+    setLinger(lr);
     const t = setTimeout(() => setLinger(null), LINGER_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v.lastRound?.round]);
+  useEffect(() => {
+    prevHand.current = new Set(v.hand.map(cardKey));
+  });
+
   // Dès qu'une nouvelle carte est posée, le pli suivant prend la place.
   const shownLinger = linger && v.table.length === 0 && v.phase !== 'finished' ? linger : null;
   const shownTable = shownLinger ? shownLinger.table : v.table;
   const tableDefender = shownLinger ? shownLinger.defender : v.defender;
+  const lingering = !!shownLinger;
+  useEffect(() => {
+    if (lingering || !pendingDraw.current) return;
+    const pd = pendingDraw.current;
+    pendingDraw.current = null;
+    launchDraws(pd, EXIT_SECONDS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lingering]);
+  // Filet de sécurité : rien ne reste caché indéfiniment.
+  useEffect(() => {
+    if (hidden.size === 0) return;
+    const t = setTimeout(() => setHidden(new Set()), LINGER_MS + 4000);
+    return () => clearTimeout(t);
+  }, [hidden]);
+
+  /** Vol d'une paire de cartes vers la défausse, ou vers celui qui ramasse. */
+  const exitFor = (key: string) => (): TargetAndTransition => {
+    const el = pairEls.current.get(key);
+    const { kind, defender } = exitInfo.current;
+    const target =
+      kind === 'take'
+        ? defender === v.you
+          ? visibleRect(handRef.current)
+          : visibleRect(oppEls.current.get(defender))
+        : visibleRect(discardRef.current, discardTextRef.current);
+    if (!el || !target || reduceMotion) return { opacity: 0, transition: { duration: 0.2 } };
+    const a = center(el.getBoundingClientRect());
+    const b = center(target);
+    return {
+      x: b.x - a.x,
+      y: b.y - a.y,
+      scale: kind === 'take' ? 0.45 : 0.7,
+      rotate: kind === 'discard' ? 30 : -12,
+      opacity: [1, 1, 0],
+      transition: { duration: EXIT_SECONDS, ease: [0.4, 0, 0.2, 1] as const },
+    };
+  };
 
   // --- Mise en page de la main ----------------------------------------------
   // Tailles de cartes calculées selon la largeur ET la hauteur de l'écran.
@@ -137,6 +258,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
     return null;
   };
 
+  const korol = v.players.findIndex((p) => p.place === 0);
   const prompt = promptFor(v, name);
   const last = v.table[v.table.length - 1];
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -174,6 +296,9 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
           return (
             <div
               key={p}
+              ref={(el) => {
+                if (el) oppEls.current.set(p, el);
+              }}
               className={`opp ${pl.place !== null ? 'out' : ''}`}
               style={{ transform: mobile || short ? undefined : `translateY(${norm * norm * 34}px)` }}
             >
@@ -201,9 +326,9 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         })}
       </section>
 
-      {/* Talon, tapis, défausse */}
+      {/* Pioche, tapis, défausse */}
       <section className="middle">
-        <div className="deck" aria-label={`Talon : ${v.deckCount} cartes, atout ${SUIT_SYMBOL[v.trumpSuit]}`}>
+        <div className="deck" aria-label={`Pioche : ${v.deckCount} cartes, atout ${SUIT_SYMBOL[v.trumpSuit]}`}>
           <div className="trumpc" style={{ opacity: v.trumpInDeck ? 1 : 0.35 }}>
             <PlayingCard card={v.trumpCard} trump={v.trumpSuit} />
           </div>
@@ -212,7 +337,8 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
               <PlayingCard key={i} style={{ left: i * 2, top: -i * 2 }} />
             ))}
           </div>
-          <div className="cnt">{v.deckCount ? `Talon : ${v.deckCount} carte${v.deckCount > 1 ? 's' : ''}` : 'Talon épuisé'}</div>
+          <div ref={deckAnchorRef} className="deck-anchor" aria-hidden="true" />
+          <div className="cnt">{v.deckCount ? `Pioche : ${v.deckCount} carte${v.deckCount > 1 ? 's' : ''}` : 'Pioche vide'}</div>
         </div>
 
         <div ref={tableRef} className={`tablezone ${dragging ? 'droppable' : ''}`}>
@@ -235,7 +361,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
             </div>
           </div>
           <div className="pairs">
-            <AnimatePresence custom={exitKind} mode="popLayout">
+            <AnimatePresence mode="popLayout">
               {shownTable.map((pair) => {
                 const fromYou = pair.by === v.you;
                 const unbeaten = !shownLinger && !pair.defense && pair === last && v.phase === 'defend';
@@ -244,9 +370,11 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                 return (
                   <motion.div
                     key={cardKey(pair.attack)}
+                    ref={(el: HTMLDivElement | null) => {
+                      if (el) pairEls.current.set(cardKey(pair.attack), el);
+                    }}
                     className="pair"
-                    custom={exitKind}
-                    variants={pairVariants}
+                    variants={{ exit: exitFor(cardKey(pair.attack)) }}
                     exit="exit"
                     layout
                   >
@@ -280,17 +408,19 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
 
         <div className="side">
           <div className="mobile-info">
-            <PlayingCard card={v.trumpCard} trump={v.trumpSuit} />
-            <span>Talon {v.deckCount}</span>
+            <div ref={mobileDeckRef}>
+              <PlayingCard card={v.trumpCard} trump={v.trumpSuit} />
+            </div>
+            <span>Pioche {v.deckCount}</span>
           </div>
           <div className="discard">
-            <div className="stackd" aria-hidden="true">
+            <div ref={discardRef} className="stackd" aria-hidden="true">
               {v.discardCount > 0 &&
                 [0, 1, 2].slice(0, Math.min(3, Math.ceil(v.discardCount / 4))).map((i) => (
                   <PlayingCard key={i} style={{ rotate: `${i * 9 - 8}deg` }} />
                 ))}
             </div>
-            <span>Défausse : {v.discardCount}</span>
+            <span ref={discardTextRef}>Défausse : {v.discardCount}</span>
           </div>
           <GameLog view={v} name={name} />
         </div>
@@ -309,7 +439,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
             {me?.name} (toi)
             {roleOf(v.you) && <span className={`role ${roleOf(v.you)!.cls}`}>{roleOf(v.you)!.text}</span>}
           </div>
-          <div className="hand" style={{ '--overlap': `${overlap}px` } as React.CSSProperties}>
+          <div ref={handRef} className="hand" style={{ '--overlap': `${overlap}px` } as React.CSSProperties}>
             <AnimatePresence>
               {v.hand.map((c) => {
                 const ok = yourTurn && isLegal(c);
@@ -323,13 +453,17 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                 return (
                   <PlayingCard
                     key={cardKey(c)}
+                    ref={(el: HTMLDivElement | null) => {
+                      if (el) handEls.current.set(cardKey(c), el);
+                    }}
                     layoutId={`c-${cardKey(c)}`}
                     card={c}
                     trump={v.trumpSuit}
                     className={cls}
                     style={{ zIndex: isSel ? 5 : undefined }}
                     initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: 1, y: isSel ? -28 : ok ? -14 : 0 }}
+                    animate={{ opacity: hidden.has(cardKey(c)) ? 0 : 1, y: isSel ? -28 : ok ? -14 : 0 }}
+                    transition={{ opacity: { duration: 0.12 } }}
                     whileHover={ok ? { y: isSel ? -30 : -22 } : undefined}
                     exit={{ opacity: 0 }}
                     drag={ok}
@@ -387,6 +521,14 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         </div>
       </section>
 
+      <Flights
+        flights={flights}
+        onLand={(f) => {
+          setFlights((all) => all.filter((x) => x.id !== f.id));
+          if (f.reveal) reveal([f.reveal]);
+        }}
+      />
+
       <AnimatePresence>
         {flash && (
           <motion.div
@@ -426,23 +568,35 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         </Modal>
       )}
 
-      {/* Fin de partie */}
+      {/* Fin de partie : reste affichée jusqu'à ce que le joueur revienne au salon */}
       {v.phase === 'finished' && (
         <Modal label="Fin de partie">
-          <PlayingCard style={{ margin: '0 auto', rotate: '-8deg' }} size={40} />
-          <h2>
-            {v.durak === v.you ? 'Tu es le durak !' : `${name(v.durak ?? -1)} est le durak`}
-          </h2>
+          <span className="eyebrow">Partie terminée en {v.round} plis</span>
+          <div className="verdict">
+            {korol >= 0 && (
+              <div className="korol">
+                <span className="tag">Korol</span>
+                <b>{korol === v.you ? 'Toi !' : name(korol)}</b>
+              </div>
+            )}
+            {v.durak !== null && (
+              <div className="durak-box">
+                <span className="tag">Durak</span>
+                <b>{v.durak === v.you ? 'Toi…' : name(v.durak)}</b>
+              </div>
+            )}
+          </div>
           <div className="rank">
             {v.players
               .map((p, i) => ({ ...p, i }))
               .filter((p) => p.place !== null)
               .sort((a, b) => a.place! - b.place!)
               .map((p) => (
-                <div key={p.id}>
+                <div key={p.id} className={p.place === 0 ? 'korol-row' : ''}>
                   <span className="pos">{p.place! + 1}</span>
                   {p.name}
                   {p.i === v.you ? ' (toi)' : ''}
+                  {p.place === 0 && <span className="rank-tag">Korol</span>}
                 </div>
               ))}
             {v.durak !== null && (
@@ -451,6 +605,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                 {name(v.durak)}
                 {v.durak === v.you ? ' (toi)' : ''} · {v.players[v.durak].cardCount} carte
                 {v.players[v.durak].cardCount > 1 ? 's' : ''} en main
+                <span className="rank-tag">Durak</span>
               </div>
             )}
           </div>
@@ -458,24 +613,14 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
             <button type="button" className="btn ghost" onClick={leave}>
               Quitter
             </button>
-            {isHost ? (
-              <>
-                <button type="button" className="btn ghost" onClick={() => toLobby()}>
-                  Retour au salon
-                </button>
-                <button type="button" className="btn primary" onClick={() => start()}>
-                  Revanche
-                </button>
-              </>
-            ) : (
-              <span className="hint" style={{ alignSelf: 'center' }}>
-                L’hôte peut lancer la revanche.
-              </span>
-            )}
+            <button type="button" className="btn primary" onClick={() => toLobby()}>
+              Retour au salon
+            </button>
           </div>
-          {v.durak !== null && (
-            <p className="hint">À la revanche, {v.durak === v.you ? 'tu défendras' : `${name(v.durak)} défendra`} en premier.</p>
-          )}
+          <p className="hint">
+            Prends ton temps : la prochaine partie attend que tout le monde soit revenu au salon.
+            {v.durak !== null && <> {v.durak === v.you ? 'Tu défendras' : `${name(v.durak)} défendra`} en premier.</>}
+          </p>
         </Modal>
       )}
 

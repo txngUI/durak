@@ -28,6 +28,8 @@ export interface Member {
   connected: boolean;
   /** A quitté le salon pendant une partie : retiré à la fin de celle-ci. */
   left: boolean;
+  /** Regarde encore l'écran de fin de partie (pas revenu au salon). */
+  inResults: boolean;
 }
 
 export interface Room {
@@ -57,6 +59,14 @@ function cleanName(name: unknown): string {
 }
 
 const newId = () => randomBytes(8).toString('hex');
+const newMember = (name: string): Member => ({
+  id: newId(),
+  token: newId() + newId(),
+  name,
+  connected: true,
+  left: false,
+  inResults: false,
+});
 
 export class Rooms {
   private rooms = new Map<string, Room>();
@@ -78,7 +88,7 @@ export class Rooms {
   }
 
   create(name: string): { room: Room; member: Member } {
-    const member: Member = { id: newId(), token: newId() + newId(), name: cleanName(name), connected: true, left: false };
+    const member: Member = newMember(cleanName(name));
     const room: Room = {
       code: this.newCode(),
       hostId: member.id,
@@ -98,12 +108,13 @@ export class Rooms {
   join(code: string, name: string): { room: Room; member: Member } {
     const room = this.get(code);
     if (!room) throw new RoomError('Aucun salon avec ce code. Vérifie les 6 caractères.');
-    if (room.game) throw new RoomError('Une partie est en cours dans ce salon. Réessaie à la fin.');
+    if (room.game && room.game.phase !== 'finished')
+      throw new RoomError('Une partie est en cours dans ce salon. Réessaie à la fin.');
     const clean = cleanName(name);
     if (room.members.length >= MAX_PLAYERS) throw new RoomError('Ce salon est complet (6 joueurs).');
     if (room.members.some((m) => m.name.toLowerCase() === clean.toLowerCase()))
       throw new RoomError('Ce pseudo est déjà pris dans ce salon.');
-    const member: Member = { id: newId(), token: newId() + newId(), name: clean, connected: true, left: false };
+    const member = newMember(clean);
     room.members.push(member);
     room.idleSince = null;
     this.notify(room);
@@ -125,7 +136,10 @@ export class Rooms {
     const m = room.members.find((x) => x.id === memberId);
     if (!m) return;
     m.connected = false;
+    // Un joueur déconnecté ne bloque pas la partie suivante.
+    m.inResults = false;
     if (!room.members.some((x) => x.connected)) room.idleSince = Date.now();
+    this.closeResultsIfDone(room);
     this.schedule(room);
     this.notify(room);
   }
@@ -151,8 +165,17 @@ export class Rooms {
     }
     if (!present.some((m) => m.id === room.hostId)) room.hostId = present[0].id;
     if (!room.members.some((x) => x.connected)) room.idleSince = Date.now();
+    this.closeResultsIfDone(room);
     this.schedule(room);
     this.notify(room);
+  }
+
+  /** Quand plus personne ne regarde l'écran de fin, le salon redevient un salon d'attente. */
+  private closeResultsIfDone(room: Room) {
+    if (room.game?.phase !== 'finished' || room.members.some((m) => m.inResults)) return;
+    room.game = null;
+    room.gamePlayerIds = [];
+    this.dropLeavers(room);
   }
 
   close(room: Room) {
@@ -173,7 +196,7 @@ export class Rooms {
 
   reorder(room: Room, by: string, order: string[]) {
     this.requireHost(room, by);
-    if (room.game) throw new RoomError('Impossible pendant une partie.');
+    if (room.game && room.game.phase !== 'finished') throw new RoomError('Impossible pendant une partie.');
     const ids = room.members.map((m) => m.id);
     if (order.length !== ids.length || !ids.every((id) => order.includes(id)))
       throw new RoomError('Ordre des places invalide.');
@@ -184,6 +207,10 @@ export class Rooms {
   start(room: Room, by: string) {
     this.requireHost(room, by);
     if (room.game && room.game.phase !== 'finished') throw new RoomError('Une partie est déjà en cours.');
+    const waiting = room.members.filter((m) => m.inResults).map((m) => m.name);
+    if (waiting.length) throw new RoomError(`En attente de ${waiting.join(', ')}, qui regarde encore les résultats.`);
+    room.game = null;
+    room.gamePlayerIds = [];
     this.dropLeavers(room);
     if (room.members.length < MIN_PLAYERS) throw new RoomError('Il faut au moins 2 joueurs pour lancer la partie.');
     room.gamePlayerIds = room.members.map((m) => m.id);
@@ -195,13 +222,12 @@ export class Rooms {
     this.notify(room);
   }
 
+  /** Le joueur quitte l'écran de fin et revient au salon d'attente. */
   toLobby(room: Room, by: string) {
-    this.requireHost(room, by);
     if (room.game && room.game.phase !== 'finished') throw new RoomError('La partie n’est pas terminée.');
-    room.game = null;
-    room.gamePlayerIds = [];
-    this.dropLeavers(room);
-    this.schedule(room);
+    const m = room.members.find((x) => x.id === by);
+    if (m) m.inResults = false;
+    this.closeResultsIfDone(room);
     this.notify(room);
   }
 
@@ -221,6 +247,9 @@ export class Rooms {
     room.game = r.state;
     if (r.state.phase === 'finished') {
       room.lastDurakId = r.state.durak === null ? null : room.gamePlayerIds[r.state.durak];
+      // Chacun garde l'écran de fin jusqu'à ce qu'il revienne lui-même au salon.
+      for (const m of room.members) m.inResults = m.connected && !m.left && room.gamePlayerIds.includes(m.id);
+      this.closeResultsIfDone(room);
     }
     this.schedule(room);
     this.notify(room);
@@ -273,17 +302,19 @@ export class Rooms {
 
   viewFor(room: Room, memberId: string): RoomView {
     const seat = room.gamePlayerIds.indexOf(memberId);
+    const me = room.members.find((m) => m.id === memberId);
+    const playing = !!room.game && (room.game.phase !== 'finished' || !!me?.inResults);
     return {
       code: room.code,
       you: memberId,
       hostId: room.hostId,
       players: room.members
         .filter((m) => !m.left)
-        .map((m) => ({ id: m.id, name: m.name, connected: m.connected })),
+        .map((m) => ({ id: m.id, name: m.name, connected: m.connected, inResults: m.inResults })),
       settings: room.settings,
-      status: room.game ? 'playing' : 'lobby',
+      status: playing ? 'playing' : 'lobby',
       lastDurakId: room.lastDurakId,
-      game: room.game ? viewFor(room.game, seat) : null,
+      game: playing ? viewFor(room.game!, seat) : null,
       deadline: room.deadline,
       serverNow: Date.now(),
       gamePlayerIds: room.gamePlayerIds,
