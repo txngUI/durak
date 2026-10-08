@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- Source de public/og-image.png (aperçu des liens partagés). Voir packages/web/og/README.md -->
+  <defs>
+    <radialGradient id="felt" cx="62%" cy="42%" r="80%">
+      <stop offset="0" stop-color="#1e4a4c"/>
+      <stop offset="0.6" stop-color="#163a3c"/>
+      <stop offset="1" stop-color="#0d2627"/>
+    </radialGradient>
+    <pattern id="weave" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="2" height="6" fill="#ffffff" fill-opacity="0.02"/>
+    </pattern>
+    <pattern id="back" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="9" height="9" fill="#7a1f1c"/>
+      <rect width="2.5" height="9" fill="#d8ae55" fill-opacity="0.35"/>
+      <rect width="9" height="2.5" fill="#d8ae55" fill-opacity="0.35"/>
+    </pattern>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#felt)"/>
+  <rect width="1200" height="630" fill="url(#weave)"/>
+
+  <!-- Éventail de cartes, pivot sous l'éventail -->
+  <g transform="translate(880 700)" filter="url(#shadow)" font-family="Golos Text, DejaVu Sans, sans-serif" font-weight="700">
+    <g transform="rotate(-26) translate(-75 -520)">
+      <rect width="150" height="213" rx="15" fill="url(#back)"/>
+      <rect x="6" y="6" width="138" height="201" rx="11" fill="none" stroke="#f8f4ea" stroke-width="6"/>
+    </g>
+    <g transform="rotate(-13) translate(-75 -520)">
+      <rect width="150" height="213" rx="15" fill="#f8f4ea"/>
+      <text x="14" y="46" font-size="42" fill="#1b1d1f">7</text>
+      <text x="16" y="80" font-size="30" fill="#1b1d1f">♣</text>
+      <text x="75" y="150" font-size="76" fill="#1b1d1f" text-anchor="middle">♣</text>
+    </g>
+    <g transform="rotate(0) translate(-75 -520)">
+      <rect width="150" height="213" rx="15" fill="#f8f4ea"/>
+      <text x="14" y="46" font-size="42" fill="#b8322a">10</text>
+      <text x="16" y="80" font-size="30" fill="#b8322a">♦</text>
+      <text x="75" y="150" font-size="76" fill="#b8322a" text-anchor="middle">♦</text>
+    </g>
+    <g transform="rotate(13) translate(-75 -520)">
+      <rect width="150" height="213" rx="15" fill="#f8f4ea"/>
+      <text x="14" y="46" font-size="42" fill="#1b1d1f">Q</text>
+      <text x="16" y="80" font-size="30" fill="#1b1d1f">♠</text>
+      <text x="75" y="150" font-size="76" fill="#1b1d1f" text-anchor="middle">♠</text>
+    </g>
+    <g transform="rotate(26) translate(-75 -520)">
+      <rect width="150" height="213" rx="15" fill="#f8f4ea"/>
+      <rect x="2" y="2" width="146" height="209" rx="13" fill="none" stroke="#d8ae55" stroke-width="4"/>
+      <text x="14" y="46" font-size="42" fill="#b8322a">A</text>
+      <text x="16" y="80" font-size="30" fill="#b8322a">♥</text>
+      <text x="75" y="150" font-size="76" fill="#b8322a" text-anchor="middle">♥</text>
+    </g>
+  </g>
+
+  <!-- Texte -->
+  <text x="80" y="250" font-family="Yeseva One, serif" font-size="150" fill="#d8ae55">Durak</text>
+  <text x="84" y="322" font-family="Golos Text, sans-serif" font-weight="600" font-size="34" fill="#f8f4ea">Ne sois pas le dernier</text>
+  <text x="84" y="366" font-family="Golos Text, sans-serif" font-weight="600" font-size="34" fill="#f8f4ea">avec des cartes en main.</text>
+  <text x="84" y="430" font-family="Golos Text, sans-serif" font-weight="600" font-size="24" fill="#f8f4ea" fill-opacity="0.7">Jeu de cartes russe · 2 à 6 joueurs · en ligne</text>
+
+  <rect x="80" y="476" width="356" height="56" rx="28" fill="#d8ae55"/>
+  <text x="258" y="512" font-family="Golos Text, sans-serif" font-weight="600" font-size="24" fill="#2a1d05" text-anchor="middle">Rejoins avec un code</text>
+
+  <text x="84" y="590" font-family="JetBrains Mono, monospace" font-weight="500" font-size="22" fill="#f8f4ea" fill-opacity="0.55" letter-spacing="2">durak.tanguydavid.fr</text>
+</svg>

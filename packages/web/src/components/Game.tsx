@@ -1,4 +1,4 @@
-import { type Card, type LastRound, type PlayerView, type RoomView, SUIT_SYMBOL, cardLabel } from '@durak/engine';
+import { type Action, type Card, type LastRound, type PlayerView, type RoomView, SUIT_SYMBOL, cardLabel } from '@durak/engine';
 import { AnimatePresence, type PanInfo, type TargetAndTransition, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { avatarColors, cardKey, initial, logText, promptFor, sameCard } from '../format';
@@ -55,10 +55,19 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
   useEffect(() => setSelected(null), [turnKey]);
   const isLegal = (c: Card) => legal.some((l) => sameCard(l, c));
 
+  // Une seule action envoyée par tour : un clic de trop (double-clic, bouton martelé)
+  // ne doit pas partir au serveur et revenir en message d'erreur.
+  const sentFor = useRef<string | null>(null);
+  const send = async (a: Action) => {
+    if (sentFor.current === turnKey) return;
+    sentFor.current = turnKey;
+    if (!(await act(a))) sentFor.current = null;
+  };
+
   const play = (card: Card) => {
     if (!isLegal(card)) return;
     setSelected(null);
-    act(v.phase === 'defend' ? { type: 'defend', card } : { type: 'attack', card });
+    send(v.phase === 'defend' ? { type: 'defend', card } : { type: 'attack', card });
   };
 
   // --- Glisser-déposer sur le tapis -----------------------------------------
@@ -202,12 +211,15 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
     launchDraws(pd, EXIT_SECONDS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lingering]);
-  // Filet de sécurité : rien ne reste caché indéfiniment.
+  // Filet de sécurité (onglet en arrière-plan, animations suspendues) : rien ne reste caché.
   useEffect(() => {
-    if (hidden.size === 0) return;
-    const t = setTimeout(() => setHidden(new Set()), LINGER_MS + 4000);
+    if (hidden.size === 0 && flights.length === 0) return;
+    const t = setTimeout(() => {
+      setHidden(new Set());
+      setFlights([]);
+    }, LINGER_MS + 4000);
     return () => clearTimeout(t);
-  }, [hidden]);
+  }, [hidden, flights]);
 
   /** Vol d'une paire de cartes vers la défausse, ou vers celui qui ramasse. */
   const exitFor = (key: string) => (): TargetAndTransition => {
@@ -460,10 +472,10 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                     card={c}
                     trump={v.trumpSuit}
                     className={cls}
-                    style={{ zIndex: isSel ? 5 : undefined }}
+                    // Masquée sans animation : reste fiable même si l'onglet est en arrière-plan.
+                    style={{ zIndex: isSel ? 5 : undefined, visibility: hidden.has(cardKey(c)) ? 'hidden' : undefined }}
                     initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: hidden.has(cardKey(c)) ? 0 : 1, y: isSel ? -28 : ok ? -14 : 0 }}
-                    transition={{ opacity: { duration: 0.12 } }}
+                    animate={{ opacity: 1, y: isSel ? -28 : ok ? -14 : 0 }}
                     whileHover={ok ? { y: isSel ? -30 : -22 } : undefined}
                     exit={{ opacity: 0 }}
                     drag={ok}
@@ -472,7 +484,6 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                     onDragStart={() => setDragging(true)}
                     onDragEnd={(_, info) => onDragEnd(c, info)}
                     onClick={() => ok && (isSel ? play(c) : setSelected(c))}
-                    onDoubleClick={() => ok && play(c)}
                     tabIndex={ok ? 0 : -1}
                     onKeyDown={(e) => ok && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), isSel ? play(c) : setSelected(c))}
                     aria-pressed={ok ? isSel : undefined}
@@ -491,12 +502,12 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
           {yourTurn && (
             <div className="row">
               {v.legal.canTake && (
-                <button type="button" className="btn danger" onClick={() => act({ type: 'take' })}>
+                <button type="button" className="btn danger" onClick={() => send({ type: 'take' })}>
                   Ramasser
                 </button>
               )}
               {v.legal.canPass && (
-                <button type="button" className="btn ghost" onClick={() => act({ type: 'pass' })}>
+                <button type="button" className="btn ghost" onClick={() => send({ type: 'pass' })}>
                   Passer
                 </button>
               )}
@@ -555,7 +566,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
               const [bg, fg] = avatarColors(t);
               const side = t === (v.you + 1) % n ? 'à ta gauche' : 'à ta droite';
               return (
-                <button key={t} type="button" className="choice" onClick={() => act({ type: 'chooseAttacker', target: t })}>
+                <button key={t} type="button" className="choice" onClick={() => send({ type: 'chooseAttacker', target: t })}>
                   <span className="av" style={{ background: bg, color: fg }}>
                     {initial(name(t))}
                   </span>
