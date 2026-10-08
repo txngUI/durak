@@ -5,7 +5,7 @@ Le principe : à chaque push sur `main`, GitHub Actions lance les tests, constru
 ```
 push main ──► GitHub Actions : tests ─► image ghcr.io ─► ssh VPS : docker compose pull && up -d
                                                           │
-navigateur ──► https://durak.tanguydavid.fr ──► Caddy ──► 127.0.0.1:3010 ──► conteneur durak
+navigateur ──► https://durak.tanguydavid.fr ──► conteneur Caddy ──► réseau Docker ──► conteneur durak:3000
 ```
 
 À faire une seule fois, dans l'ordre.
@@ -57,19 +57,30 @@ Teste depuis ton PC : `ssh -i ~/.ssh/durak_deploy deploy@IP_DU_VPS docker ps`
 
 ## 4. Le conteneur
 
-Copie `deploy/docker-compose.yml` dans `/home/deploy/durak/docker-compose.yml` sur le VPS. Le jeu écoute sur `127.0.0.1:3010` (invisible depuis Internet, seul Caddy y accède). Si le port 3010 est déjà pris par ton autre projet, change-le ici et dans le Caddyfile.
+Copie `deploy/docker-compose.yml` dans `/home/deploy/durak/docker-compose.yml` sur le VPS. Le port `127.0.0.1:3010` sert seulement au diagnostic depuis le VPS ; il est invisible depuis Internet.
 
-## 5. Caddy
+## 5. Caddy (dans Docker)
 
-Regarde comment ton Caddy tourne :
+Caddy tourne dans le conteneur `caddy-caddy-1`. Le jeu rejoint son réseau Docker, et Caddy le joint à l'adresse `durak:3000`.
+
+Trouve le nom du réseau de Caddy et le dossier de sa configuration :
 
 ```bash
-systemctl status caddy        # installé directement sur le VPS ?
-docker ps | grep -i caddy     # ou dans un conteneur ?
+docker inspect caddy-caddy-1 --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+docker inspect caddy-caddy-1 --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}'
 ```
 
-- **Caddy installé sur le VPS** : ajoute le bloc de `deploy/Caddyfile` à `/etc/caddy/Caddyfile`, puis `sudo systemctl reload caddy`.
-- **Caddy dans Docker** : utilise la variante `reverse_proxy durak:3000` et branche les deux conteneurs sur le même réseau (par exemple `docker network connect <reseau_de_caddy> durak`, ou un réseau `external` déclaré dans les deux docker-compose). Puis recharge Caddy.
+Si le réseau ne s'appelle pas `caddy_default`, corrige la ligne `name:` en bas de `~/durak/docker-compose.yml`. Puis démarre le jeu une première fois :
+
+```bash
+cd ~/durak && docker compose up -d
+```
+
+Ajoute le bloc de `deploy/Caddyfile` au Caddyfile qui se trouve dans le dossier de Caddy, puis recharge-le sans coupure :
+
+```bash
+docker exec caddy-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+```
 
 Caddy obtient le certificat HTTPS automatiquement dès que le DNS de l'étape 1 répond.
 
@@ -103,7 +114,7 @@ Ensuite, ouvre https://durak.tanguydavid.fr.
 docker compose -f ~/durak/docker-compose.yml logs -f     # journaux du jeu
 docker compose -f ~/durak/docker-compose.yml ps          # état et healthcheck
 curl -s localhost:3010/health                            # doit répondre "ok"
-journalctl -u caddy -f                                   # journaux de Caddy (installé sur le VPS)
+docker logs -f caddy-caddy-1                             # journaux de Caddy
 ```
 
 Les salons sont en mémoire : chaque déploiement redémarre le conteneur et coupe les parties en cours.

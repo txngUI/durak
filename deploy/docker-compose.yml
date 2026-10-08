@@ -4,7 +4,10 @@ services:
     image: ghcr.io/txngui/durak:latest
     container_name: durak
     restart: unless-stopped
-    # Accessible uniquement depuis le VPS : c'est Caddy qui l'expose en HTTPS.
+    # Caddy (dans Docker) joint le jeu par le réseau partagé, à l'adresse durak:3000.
+    networks:
+      - caddy
+    # Accès local pour le diagnostic uniquement (curl localhost:3010/health), invisible depuis Internet.
     ports:
       - "127.0.0.1:3010:3000"
     healthcheck:
@@ -12,3 +15,9 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+
+networks:
+  caddy:
+    external: true
+    # Nom du réseau du conteneur caddy-caddy-1 (voir deploy/README.md, étape 5).
+    name: caddy_default
