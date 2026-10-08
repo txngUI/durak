@@ -70,5 +70,11 @@ jobs:
           install -m 700 -d ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          ssh -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" \
-            'cd ~/durak && docker compose pull && docker compose up -d && docker image prune -f'
+          ssh-keygen -y -f ~/.ssh/id_deploy > /dev/null 2>&1 \
+            || { echo "::error::VPS_SSH_KEY n'est pas une clé privée valide (copie tout le fichier, lignes BEGIN/END comprises)."; exit 1; }
+          if ! ssh -i ~/.ssh/id_deploy -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 "$USER@$HOST" \
+            'cd ~/durak && docker compose pull && docker compose up -d && docker image prune -f' 2> ssh.err; then
+            echo "::error::Échec SSH : $(grep -v '^Warning' ssh.err | tail -3 | tr '\n' ' ')"
+            exit 1
+          fi
+          cat ssh.err
