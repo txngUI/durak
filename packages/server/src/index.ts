@@ -191,6 +191,17 @@ io.on('connection', (socket: Client) => {
 
 setInterval(() => rooms.sweep(), 60_000).unref();
 
+http.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(
+      `Le port ${PORT} est déjà utilisé : un autre serveur Durak tourne sans doute déjà.\n` +
+        `Arrête-le (Ctrl+C dans son terminal) ou choisis un autre port : DURAK_SERVER_PORT=3001 npm run dev`,
+    );
+    process.exit(1);
+  }
+  throw err;
+});
+
 http.listen(PORT, () => {
   console.log(`Durak : serveur prêt sur http://localhost:${PORT}`);
 });

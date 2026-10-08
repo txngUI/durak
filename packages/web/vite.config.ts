@@ -5,8 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    strictPort: true,
     proxy: {
-      '/socket.io': { target: 'http://localhost:3000', ws: true },
+      '/socket.io': { target: `http://localhost:${process.env.DURAK_SERVER_PORT ?? 3000}`, ws: true },
     },
   },
 });
