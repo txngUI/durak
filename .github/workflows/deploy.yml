@@ -47,9 +47,9 @@ jobs:
             ${{ steps.name.outputs.image }}:${{ github.sha }}
 
   deploy:
-    # Ne tourne que si les variables du VPS sont configurées dans le dépôt GitHub.
+    # VPS_HOST, VPS_USER et VPS_PORT sont acceptés en variables ou en secrets, au niveau
+    # du dépôt ou de l'environnement « production ». Sans VPS_HOST, le déploiement est sauté.
     needs: image
-    if: vars.VPS_HOST != ''
     runs-on: ubuntu-latest
     concurrency: production
     environment:
@@ -59,10 +59,14 @@ jobs:
       - name: Mise à jour sur le VPS
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          HOST: ${{ vars.VPS_HOST }}
-          USER: ${{ vars.VPS_USER }}
-          PORT: ${{ vars.VPS_PORT || '22' }}
+          HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
+          USER: ${{ vars.VPS_USER || secrets.VPS_USER }}
+          PORT: ${{ vars.VPS_PORT || secrets.VPS_PORT || '22' }}
         run: |
+          if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$SSH_KEY" ]; then
+            echo "::warning::VPS_HOST, VPS_USER ou VPS_SSH_KEY manquant : déploiement sauté."
+            exit 0
+          fi
           install -m 700 -d ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
