@@ -22,7 +22,7 @@ Dans hPanel → Domaines → `tanguydavid.fr` → DNS / Nameservers, ajoute :
 Vérifie depuis ton PC (quelques minutes peuvent être nécessaires) :
 
 ```bash
-dig +short durak.tanguydavid.fr
+getent hosts durak.tanguydavid.fr
 ```
 
 ## 2. Vérifier Docker sur le VPS
