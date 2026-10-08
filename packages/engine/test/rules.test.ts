@@ -109,13 +109,12 @@ describe('relance', () => {
       defender: 0,
     });
     let s = play(s0, [1, atk('6C')], [0, def('7C')]);
-    // P1 et P2 n'ont ni 6 ni 7 : ils sont sautés, P3 a la main.
+    // P1 et P2 n'ont ni 6 ni 7 : ils passent leur tour, P3 a la main.
     expect(s.actor).toBe(3);
-    expect(s.passed).toEqual([]);
+    expect(s.passed).toEqual([1, 2]);
     s = play(s, [3, atk('7H')], [0, def('AD')]);
-    // Nouvelle défense : la relance repart de l'attaquant principal.
-    expect(s.actor).toBe(1);
-    s = play(s, [1, pass]);
+    // P1 a maintenant un As, mais il a déjà passé son tour : il ne peut plus relancer.
+    // P3 n'a ni 7 ni As : le pli se termine.
     expect(s.phase).toBe('attack');
     expect(s.round).toBe(2);
     expect(s.discardCount).toBe(4);
@@ -136,6 +135,19 @@ describe('relance', () => {
     const after = play(r.state, [2, atk('7S')]);
     expect(after.phase).toBe('defend');
     expect(after.actor).toBe(0);
+  });
+
+  it('un attaquant qui n’a pas pu relancer ne réattaque plus de ce pli', () => {
+    // A ne peut pas relancer (ni 6 ni 7), B relance ; après la défense, A aurait un 8 mais a passé son tour.
+    const s0 = setup({ hands: ['7C 9S KD AC', '6C 9C', '7S 9D'], trump: 'H', attacker: 1, defender: 0 });
+    let s = play(s0, [1, atk('6C')], [0, def('7C')]);
+    expect(s.actor).toBe(2);
+    expect(s.passed).toEqual([1]);
+    s = play(s, [2, atk('7S')], [0, def('9S')]);
+    // Le 9 est désormais relançable : A a le 9♣ mais reste exclu, la main reste à B.
+    expect(s.round).toBe(1);
+    expect(s.actor).toBe(2);
+    expect(applyAction(s, 1, atk('9C')).ok).toBe(false);
   });
 
   it('un joueur qui a passé ne peut plus relancer pendant ce pli', () => {

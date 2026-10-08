@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Game } from './components/Game';
 import { Home } from './components/Home';
 import { Lobby } from './components/Lobby';
@@ -9,6 +9,10 @@ import { useStore } from './store';
 export function App() {
   const { room, session, connection, toasts, dismiss } = useStore();
   const [rules, setRules] = useState(false);
+  // Une fois dans un salon, on retire le code d'invitation de l'adresse.
+  useEffect(() => {
+    if (room && location.search) history.replaceState(null, '', '/');
+  }, [room]);
   const openRules = () => setRules(true);
 
   let screen;

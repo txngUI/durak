@@ -182,6 +182,14 @@ io.on('connection', (socket: Client) => {
     }),
   );
 
+  socket.on('chat:send', (p, ack) =>
+    guard(ack, () => {
+      const { room, memberId } = current(socket);
+      rooms.chat(room, memberId, p?.text);
+      return {};
+    }),
+  );
+
   socket.on('disconnect', () => {
     const room = socket.data.code ? rooms.get(socket.data.code) : undefined;
     const id = socket.data.memberId;

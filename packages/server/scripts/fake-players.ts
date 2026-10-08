@@ -2,12 +2,12 @@
  * Outil de développement : fait rejoindre un salon par de faux joueurs qui jouent
  * des coups légaux au hasard. Ce ne sont pas les bots de la V2.
  *
- *   npx tsx packages/server/scripts/fake-players.ts ABC-123 2
+ *   npx tsx packages/server/scripts/fake-players.ts ABC-123 2 [délai ms] [décalage des pseudos]
  */
 import type { Action, ClientToServer, RoomView, ServerToClient } from '@durak/engine';
 import { io, type Socket } from 'socket.io-client';
 
-const [code, countArg = '1', delayArg = '900'] = process.argv.slice(2);
+const [code, countArg = '1', delayArg = '900', offsetArg = '0'] = process.argv.slice(2);
 if (!code) {
   console.error('Usage : fake-players.ts <CODE> [nombre] [délai ms]');
   process.exit(1);
@@ -16,7 +16,7 @@ const url = process.env.DURAK_URL ?? 'http://localhost:3000';
 const NAMES = ['Léa', 'Marc', 'Ivan', 'Olga', 'Sacha'];
 
 for (let i = 0; i < Number(countArg); i++) {
-  const name = NAMES[i % NAMES.length];
+  const name = NAMES[(i + Number(offsetArg)) % NAMES.length];
   const socket: Socket<ServerToClient, ClientToServer> = io(url, { transports: ['websocket'] });
   let pending: ReturnType<typeof setTimeout> | null = null;
 

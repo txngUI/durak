@@ -149,4 +149,28 @@ describe('salons', () => {
     expect(room.game).toBeNull();
     expect(() => rooms.start(room, a.id)).not.toThrow();
   });
+
+  it('chat : messages censurés, anti-flood, et pseudos vulgaires refusés', () => {
+    const { rooms } = setup();
+    const { room, member: a } = rooms.create('A');
+    rooms.chat(room, a.id, '  bien joué   connard ');
+    expect(room.chat.at(-1)).toMatchObject({ from: a.id, name: 'A', text: 'bien joué *******' });
+    for (let i = 0; i < 4; i++) rooms.chat(room, a.id, `msg ${i}`);
+    expect(() => rooms.chat(room, a.id, 'encore')).toThrow(/Doucement/);
+    expect(() => rooms.join(room.code, 'Connard93')).toThrow(/pseudo/);
+    expect(rooms.viewFor(room, a.id).chat.length).toBe(5);
+  });
+
+  it('reconnaît le durak à son pseudo s’il a quitté puis rejoint le salon', () => {
+    const { rooms } = setup();
+    const { room, member: a } = rooms.create('A');
+    const { member: b } = rooms.join(room.code, 'Bob');
+    room.lastDurakId = b.id;
+    room.lastDurakName = 'Bob';
+    rooms.leave(room, b.id);
+    rooms.join(room.code, 'bob');
+    rooms.start(room, a.id);
+    expect(room.game!.defender).toBe(1);
+    expect(room.game!.log[0]).toMatchObject({ t: 'start', reason: 'durak' });
+  });
 });

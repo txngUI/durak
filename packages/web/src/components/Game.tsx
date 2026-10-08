@@ -1,8 +1,20 @@
-import { type Action, type Card, type LastRound, type PlayerView, type RoomView, SUIT_SYMBOL, cardLabel } from '@durak/engine';
+import {
+  type Action,
+  type Card,
+  type LastRound,
+  type PlayerView,
+  type RoomView,
+  SUIT_NAME,
+  SUIT_SYMBOL,
+  cardLabel,
+  isRed,
+} from '@durak/engine';
 import { AnimatePresence, type PanInfo, type TargetAndTransition, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { avatarColors, cardKey, initial, logText, promptFor, sameCard } from '../format';
 import { useStore } from '../store';
+import { Confetti, Medal } from './Celebration';
+import { Chat, useUnreadChat } from './Chat';
 import { FLIGHT_SECONDS, type Flight, Flights } from './Flights';
 import { Modal } from './Modal';
 import { PlayingCard } from './PlayingCard';
@@ -262,7 +274,9 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
   // --- Adversaires, dans l'ordre de la table à partir de ta gauche ----------
   const opponents = Array.from({ length: n - 1 }, (_, i) => (v.you + 1 + i) % n);
   const roleOf = (p: number) => {
-    if (v.players[p].place !== null) return { cls: 'out', text: 'sorti' };
+    const place = v.players[p].place;
+    if (place === 0) return { cls: 'korol', text: '♛ Korol' };
+    if (place !== null) return { cls: 'out', text: `Fini · ${place + 1}e` };
     if (v.phase === 'finished') return null;
     if (p === v.defender) return { cls: 'def', text: v.phase === 'chooseAttacker' ? 'choisit' : 'défend' };
     if (p === v.attacker) return { cls: 'att', text: 'attaque' };
@@ -271,6 +285,22 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
   };
 
   const korol = v.players.findIndex((p) => p.place === 0);
+  const unread = useUnreadChat(room);
+  const [mobilePanel, setMobilePanel] = useState(false);
+
+  // Annonce de l'atout en grand, une fois la donne terminée.
+  const freshStart = v.round === 1 && !v.lastRound && v.table.length === 0 && v.logSize <= 2;
+  const [intro, setIntro] = useState(freshStart);
+  useEffect(() => {
+    if (!intro) return;
+    const t = setTimeout(() => setIntro(false), reduceMotion ? 1500 : 4300);
+    return () => clearTimeout(t);
+  }, [intro, reduceMotion]);
+
+  // Fenêtre quand tu termines avant la fin de la partie.
+  const myPlace = me?.place ?? null;
+  const [outSeen, setOutSeen] = useState(myPlace !== null);
+  const showOut = myPlace !== null && !outSeen && v.phase !== 'finished';
   const prompt = promptFor(v, name);
   const last = v.table[v.table.length - 1];
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -288,6 +318,9 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
           </span>
           <span className="pill">Pli {v.round}</span>
           <span className="pill room-code">{room.code}</span>
+          <button type="button" className="icon-btn chat-btn" onClick={() => setMobilePanel(true)}>
+            Chat{unread > 0 && <span className="badge">{unread}</span>}
+          </button>
           <button type="button" className="icon-btn" onClick={onRules}>
             Règles
           </button>
@@ -412,7 +445,8 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                 );
               })}
             </AnimatePresence>
-            {Array.from({ length: Math.max(0, Math.min(3, v.maxAttacks - shownTable.length)) }, (_, i) => (
+            {/* Un seul emplacement libre, pour la prochaine carte d'attaque. */}
+            {Array.from({ length: !shownLinger && shownTable.length < v.maxAttacks ? 1 : 0 }, (_, i) => (
               <div key={`slot-${i}`} className="pair slot" aria-hidden="true" />
             ))}
           </div>
@@ -434,7 +468,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
             </div>
             <span ref={discardTextRef}>Défausse : {v.discardCount}</span>
           </div>
-          <GameLog view={v} name={name} />
+          <SidePanel room={room} view={v} name={name} />
         </div>
       </section>
 
@@ -554,8 +588,67 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         )}
       </AnimatePresence>
 
+      {/* Annonce de l'atout */}
+      <AnimatePresence>
+        {intro && (
+          <motion.div
+            className="trump-intro"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ delay: reduceMotion ? 0 : 2.2, duration: 0.3 }}
+          >
+            <motion.div
+              initial={{ rotateY: 180, scale: 0.4 }}
+              animate={{ rotateY: 0, scale: 1 }}
+              transition={{ delay: reduceMotion ? 0 : 2.3, duration: 0.7, type: 'spring', stiffness: 120, damping: 14 }}
+            >
+              <PlayingCard card={v.trumpCard} trump={v.trumpSuit} size={150} />
+            </motion.div>
+            <motion.p
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: reduceMotion ? 0 : 2.7 }}
+            >
+              Atout <span className={isRed(v.trumpSuit) ? 'red' : ''}>{SUIT_SYMBOL[v.trumpSuit]}</span> {SUIT_NAME[v.trumpSuit]}
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tu as terminé avant la fin de la partie */}
+      {showOut && myPlace === 0 && <Confetti />}
+      {showOut && (
+        <Modal label="Tu as terminé" onClose={() => setOutSeen(true)}>
+          <Medal kind={myPlace === 0 ? 'korol' : 'done'} />
+          <h2>{myPlace === 0 ? 'Tu es le Korol !' : 'Tu t’en es sorti !'}</h2>
+          <p>
+            {myPlace === 0
+              ? 'Premier à vider ta main : la couronne est à toi.'
+              : `Tu termines ${myPlace! + 1}e. Le durak n’est pas encore désigné…`}
+          </p>
+          <div className="buttons">
+            <button type="button" className="btn primary" onClick={() => setOutSeen(true)}>
+              Regarder la fin de la partie
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Panneau historique / chat en plein écran sur mobile */}
+      {mobilePanel && (
+        <Modal label="Chat et historique" onClose={() => setMobilePanel(false)} wide>
+          <SidePanel room={room} view={v} name={name} initialTab="chat" />
+          <div className="buttons">
+            <button type="button" className="btn ghost" onClick={() => setMobilePanel(false)}>
+              Fermer
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {/* Choix de l'attaquant par le premier défenseur */}
-      {v.legal.chooseTargets.length > 0 && (
+      {v.legal.chooseTargets.length > 0 && !intro && (
         <Modal label="Choisis ton attaquant">
           <h2>Tu défends en premier</h2>
           <p>
@@ -580,8 +673,10 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
       )}
 
       {/* Fin de partie : reste affichée jusqu'à ce que le joueur revienne au salon */}
+      {v.phase === 'finished' && korol === v.you && <Confetti />}
       {v.phase === 'finished' && (
         <Modal label="Fin de partie">
+          <Medal kind={v.durak === v.you ? 'durak' : korol === v.you ? 'korol' : 'done'} />
           <span className="eyebrow">Partie terminée en {v.round} plis</span>
           <div className="verdict">
             {korol >= 0 && (
@@ -662,6 +757,35 @@ function firstReason(v: PlayerView): string {
     return lowest ? `Tu as l’atout le plus faible : ${cardLabel(lowest)}.` : 'Tu as l’atout le plus faible.';
   }
   return 'Personne n’a d’atout : le sort t’a désigné.';
+}
+
+/** Panneau latéral : bascule entre l'historique de la partie et le chat. */
+function SidePanel({
+  room,
+  view,
+  name,
+  initialTab = 'log',
+}: {
+  room: RoomView;
+  view: PlayerView;
+  name: (p: number) => string;
+  initialTab?: 'log' | 'chat';
+}) {
+  const [tab, setTab] = useState<'log' | 'chat'>(initialTab);
+  const unread = useUnreadChat(room);
+  return (
+    <div className="side-panel">
+      <div className="tabs" role="tablist" aria-label="Historique ou chat">
+        <button type="button" role="tab" aria-selected={tab === 'log'} onClick={() => setTab('log')}>
+          Historique
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'chat'} onClick={() => setTab('chat')}>
+          Chat{unread > 0 && tab !== 'chat' && <span className="badge">{unread}</span>}
+        </button>
+      </div>
+      {tab === 'log' ? <GameLog view={view} name={name} /> : <Chat room={room} autoFocus={initialTab === 'chat'} />}
+    </div>
+  );
 }
 
 function GameLog({ view, name }: { view: PlayerView; name: (p: number) => string }) {

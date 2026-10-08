@@ -64,7 +64,7 @@ export interface GameState {
   /** Joueur qui doit agir maintenant (-1 si partie terminée). */
   actor: number;
   table: TablePair[];
-  /** Joueurs ayant passé pendant ce pli : ils ne peuvent plus relancer jusqu'au pli suivant. */
+  /** Joueurs ayant passé (volontairement ou faute de carte) : plus de relance jusqu'au pli suivant. */
   passed: number[];
   /** Série d'attaques par carte, pour la règle des 3 poses d'affilée. */
   attackStreaks: Record<string, { round: number; count: number }>;
@@ -282,12 +282,12 @@ function nextRelance(s: GameState) {
   s.phase = 'attack';
   for (const p of throwerOrder(s)) {
     if (s.passed.includes(p)) continue;
-    // Sans carte de la bonne valeur, on est sauté pour cette relance seulement :
-    // une défense suivante peut ouvrir d'autres valeurs.
     if (attackOptions(s, p).length > 0) {
       s.actor = p;
       return;
     }
+    // Sans carte de la bonne valeur, il passe son tour : il ne pourra plus relancer de ce pli.
+    s.passed.push(p);
   }
   endRound(s, true);
 }

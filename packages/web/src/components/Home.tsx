@@ -1,7 +1,7 @@
 import { type Card, NAME_MAX_LENGTH } from '@durak/engine';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
-import { useStore } from '../store';
+import { codeFromUrl, useStore } from '../store';
 import { PlayingCard } from './PlayingCard';
 
 const FAN: Card[] = [
@@ -20,7 +20,9 @@ const formatCode = (raw: string) => {
 
 export function Home({ onRules }: { onRules: () => void }) {
   const { name, setName, create, join } = useStore();
-  const [code, setCode] = useState('');
+  // Arrivée par un lien d'invitation : le code du salon est déjà rempli.
+  const [code, setCode] = useState(() => formatCode(codeFromUrl()));
+  const [invited] = useState(() => codeFromUrl().length === 6);
   const [busy, setBusy] = useState(false);
   const nameOk = name.trim().length > 0;
   const codeOk = code.replace('-', '').length === 6;
@@ -70,13 +72,15 @@ export function Home({ onRules }: { onRules: () => void }) {
               value={name}
               maxLength={NAME_MAX_LENGTH}
               autoComplete="nickname"
+              autoFocus={invited && !name}
               placeholder="Ex. Tanguy"
               onChange={(e) => setName(e.target.value)}
             />
           </label>
+          {invited && <div className="invite">Tu es invité dans le salon <b>{code}</b> : choisis un pseudo et rejoins.</div>}
           <button
             type="button"
-            className="btn primary"
+            className={`btn ${invited ? 'ghost' : 'primary'}`}
             disabled={!nameOk || busy}
             onClick={() => run(create)}
           >
@@ -97,7 +101,7 @@ export function Home({ onRules }: { onRules: () => void }) {
               onChange={(e) => setCode(formatCode(e.target.value))}
             />
           </label>
-          <button type="submit" className="btn ghost" disabled={!nameOk || !codeOk || busy}>
+          <button type="submit" className={`btn ${invited ? 'primary' : 'ghost'}`} disabled={!nameOk || !codeOk || busy}>
             Rejoindre
           </button>
           {!nameOk && <span className="hint">Choisis d’abord un pseudo.</span>}

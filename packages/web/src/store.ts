@@ -51,7 +51,22 @@ interface State {
   setTurnSeconds: (s: number) => Promise<boolean>;
   reorder: (order: string[]) => Promise<boolean>;
   act: (a: Action) => Promise<boolean>;
+  sendChat: (text: string) => Promise<boolean>;
+  /** Id du dernier message de chat lu, pour le compteur de non-lus. */
+  chatSeen: number;
+  markChatSeen: () => void;
 }
+
+/** Lien d'invitation : la page d'accueil pré-remplit le code du salon. */
+export const inviteLink = (code: string) => `${location.origin}/?code=${code.replace('-', '')}`;
+export const codeFromUrl = () => {
+  try {
+    const c = new URLSearchParams(location.search).get('code') ?? '';
+    return c.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  } catch {
+    return '';
+  }
+};
 
 const socket: Socket<ServerToClient, ClientToServer> = io({ autoConnect: true, transports: ['websocket', 'polling'] });
 
@@ -140,6 +155,9 @@ export const useStore = create<State>((set, get) => {
     setTurnSeconds: async (turnSeconds) => !!(await request((ack) => socket.emit('room:settings', { turnSeconds }, ack))),
     reorder: async (order) => !!(await request((ack) => socket.emit('room:reorder', { order }, ack))),
     act: async (a) => !!(await request((ack) => socket.emit('game:action', a, ack))),
+    sendChat: async (text) => !!(await request((ack) => socket.emit('chat:send', { text }, ack))),
+    chatSeen: 0,
+    markChatSeen: () => set({ chatSeen: get().room?.chat.at(-1)?.id ?? 0 }),
   };
 });
 

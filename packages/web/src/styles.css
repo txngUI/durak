@@ -553,7 +553,7 @@ button {
 
 .middle {
   display: grid;
-  grid-template-columns: 170px 1fr 190px;
+  grid-template-columns: 170px 1fr 230px;
   align-items: center;
   min-height: 0;
   padding: 0 16px;
@@ -961,7 +961,8 @@ button {
 .game.short .pairs {
   min-height: 0;
 }
-.game.short .log {
+.game.short .log,
+.game.short .side .chat-list {
   max-height: 110px;
 }
 
@@ -1157,4 +1158,209 @@ button {
 }
 .rank .durak .rank-tag {
   color: #f3b1a9;
+}
+
+/* ---------- Chat et onglets ---------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.side-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 999px;
+  padding: 3px;
+}
+.tabs button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ivory-dim);
+  cursor: pointer;
+}
+.tabs button[aria-selected='true'] {
+  background: var(--felt-line);
+  color: var(--ivory);
+}
+.side-panel .log {
+  mask-image: none;
+  padding-top: 0;
+}
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.chat-list {
+  height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.chat-list p {
+  margin: 0;
+}
+.chat-list b {
+  color: var(--gold);
+  font-weight: 600;
+}
+.chat-list .mine b {
+  color: var(--glow);
+}
+.chat-system,
+.chat-empty {
+  color: var(--ivory-faint);
+  font-style: italic;
+  font-size: 12px;
+}
+.chat-form {
+  display: flex;
+  gap: 6px;
+}
+.chat-form .input {
+  padding: 7px 10px;
+  font-size: 14px;
+  min-width: 0;
+}
+.lobby-chat {
+  background: var(--panel);
+  border: 1px solid var(--felt-line);
+  border-radius: 12px;
+  padding: 12px;
+}
+.lobby-chat .chat-list {
+  height: 140px;
+}
+.modal .side-panel .chat-list,
+.modal .side-panel .log {
+  height: 45vh;
+  max-height: 45vh;
+}
+.chat-btn {
+  display: none;
+}
+.invite {
+  font-size: 13px;
+  background: rgba(216, 174, 85, 0.12);
+  border: 1px solid rgba(216, 174, 85, 0.5);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.invite b {
+  color: var(--gold);
+  font-family: var(--mono);
+}
+
+/* ---------- Statuts ---------- */
+.role.korol {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+
+/* ---------- Annonce de l'atout ---------- */
+.trump-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  background: rgba(5, 15, 16, 0.55);
+  perspective: 800px;
+  /* Purement visuel : ne bloque jamais la table. */
+  pointer-events: none;
+}
+.trump-intro p {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 34px;
+  color: var(--gold);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+.trump-intro p span {
+  color: var(--ivory);
+}
+.trump-intro p span.red {
+  color: #e05a4f;
+}
+
+/* ---------- Résultats ---------- */
+.medal {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 32px;
+  font-weight: 700;
+}
+.medal.korol {
+  background: radial-gradient(circle at 35% 30%, #f7dc8c, var(--gold) 60%, #a77d27);
+  color: var(--gold-ink);
+  box-shadow: 0 0 0 4px rgba(216, 174, 85, 0.25), 0 0 30px rgba(242, 207, 115, 0.5);
+}
+.medal.done {
+  background: var(--felt-line);
+  color: var(--ivory);
+}
+.medal.durak {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 0 24px rgba(201, 70, 60, 0.5);
+}
+.confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 40;
+}
+.confetti span {
+  position: absolute;
+  top: 0;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .chat-btn {
+    display: inline-block;
+  }
+  .lobby-chat .chat-list {
+    height: 110px;
+  }
 }

@@ -1,6 +1,9 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import {
   type Action,
+  CHAT_HISTORY,
+  CHAT_MAX_LENGTH,
+  type ChatMessage,
   type GameState,
   type RoomSettings,
   type RoomView,
@@ -14,6 +17,7 @@ import {
   timeoutAction,
   viewFor,
 } from '@durak/engine';
+import { censor, containsVulgarity } from './censor';
 
 /** Délai accordé à un joueur déconnecté avant que le serveur joue à sa place. */
 const DISCONNECTED_TURN_SECONDS = 15;
@@ -30,6 +34,8 @@ export interface Member {
   left: boolean;
   /** Regarde encore l'écran de fin de partie (pas revenu au salon). */
   inResults: boolean;
+  /** Horodatages des derniers messages, pour limiter le flood. */
+  chatTimes: number[];
 }
 
 export interface Room {
@@ -40,9 +46,13 @@ export interface Room {
   game: GameState | null;
   gamePlayerIds: string[];
   lastDurakId: string | null;
+  /** Pseudo du dernier durak : le reconnaît s'il a quitté puis rejoint le salon. */
+  lastDurakName: string | null;
   deadline: number | null;
   timer: ReturnType<typeof setTimeout> | null;
   idleSince: number | null;
+  chat: ChatMessage[];
+  chatSeq: number;
 }
 
 export class RoomError extends Error {}
@@ -55,6 +65,7 @@ export function normalizeCode(input: string): string {
 function cleanName(name: unknown): string {
   const n = String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX_LENGTH);
   if (!n) throw new RoomError('Choisis un pseudo.');
+  if (containsVulgarity(n)) throw new RoomError('Ce pseudo n’est pas accepté. Choisis-en un autre.');
   return n;
 }
 
@@ -66,6 +77,7 @@ const newMember = (name: string): Member => ({
   connected: true,
   left: false,
   inResults: false,
+  chatTimes: [],
 });
 
 export class Rooms {
@@ -97,9 +109,12 @@ export class Rooms {
       game: null,
       gamePlayerIds: [],
       lastDurakId: null,
+      lastDurakName: null,
       deadline: null,
       timer: null,
       idleSince: null,
+      chat: [],
+      chatSeq: 0,
     };
     this.rooms.set(room.code, room);
     return { room, member };
@@ -117,6 +132,7 @@ export class Rooms {
     const member = newMember(clean);
     room.members.push(member);
     room.idleSince = null;
+    this.system(room, `${clean} a rejoint le salon.`);
     this.notify(room);
     return { room, member };
   }
@@ -154,6 +170,7 @@ export class Rooms {
     } else {
       room.members = room.members.filter((x) => x.id !== memberId);
     }
+    this.system(room, `${m.name} a quitté le salon.`);
     this.afterMembershipChange(room);
   }
 
@@ -214,9 +231,13 @@ export class Rooms {
     this.dropLeavers(room);
     if (room.members.length < MIN_PLAYERS) throw new RoomError('Il faut au moins 2 joueurs pour lancer la partie.');
     room.gamePlayerIds = room.members.map((m) => m.id);
+    // Le durak de la partie précédente défend en premier, même s'il a quitté puis rejoint le salon.
+    const durak =
+      room.members.find((m) => m.id === room.lastDurakId) ??
+      room.members.find((m) => room.lastDurakName && m.name.toLowerCase() === room.lastDurakName.toLowerCase());
     room.game = createGame(
       room.members.map((m) => ({ id: m.id, name: m.name })),
-      { previousDurakId: room.lastDurakId },
+      { previousDurakId: durak?.id ?? null },
     );
     this.schedule(room);
     this.notify(room);
@@ -247,6 +268,7 @@ export class Rooms {
     room.game = r.state;
     if (r.state.phase === 'finished') {
       room.lastDurakId = r.state.durak === null ? null : room.gamePlayerIds[r.state.durak];
+      room.lastDurakName = r.state.durak === null ? null : r.state.players[r.state.durak].name;
       // Chacun garde l'écran de fin jusqu'à ce qu'il revienne lui-même au salon.
       for (const m of room.members) m.inResults = m.connected && !m.left && room.gamePlayerIds.includes(m.id);
       this.closeResultsIfDone(room);
@@ -293,6 +315,33 @@ export class Rooms {
     if (room.hostId !== by) throw new RoomError('Seul l’hôte du salon peut faire ça.');
   }
 
+  /** Message d'un joueur, censuré et limité contre le flood. */
+  chat(room: Room, memberId: string, raw: unknown) {
+    const m = room.members.find((x) => x.id === memberId);
+    if (!m) throw new RoomError('Tu n’es pas dans ce salon.');
+    const text = String(raw ?? '')
+      .replace(/[\u0000-\u001f\u007f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, CHAT_MAX_LENGTH);
+    if (!text) return;
+    const now = Date.now();
+    m.chatTimes = m.chatTimes.filter((t) => now - t < 10_000);
+    if (m.chatTimes.length >= 5) throw new RoomError('Doucement : attends quelques secondes avant d’écrire.');
+    m.chatTimes.push(now);
+    this.post(room, { from: m.id, name: m.name, text: censor(text) });
+    this.notify(room);
+  }
+
+  private system(room: Room, text: string) {
+    this.post(room, { from: null, name: '', text });
+  }
+
+  private post(room: Room, msg: Omit<ChatMessage, 'id' | 'at'>) {
+    room.chat.push({ ...msg, id: ++room.chatSeq, at: Date.now() });
+    if (room.chat.length > CHAT_HISTORY) room.chat.splice(0, room.chat.length - CHAT_HISTORY);
+  }
+
   /** Supprime les salons abandonnés. */
   sweep(now = Date.now()) {
     for (const room of this.rooms.values()) {
@@ -318,6 +367,7 @@ export class Rooms {
       deadline: room.deadline,
       serverNow: Date.now(),
       gamePlayerIds: room.gamePlayerIds,
+      chat: room.chat,
     };
   }
 }

@@ -1,12 +1,13 @@
 # Durak
 
-Le jeu de cartes russe, jouable en ligne de 2 à 6 joueurs. On crée un salon, on donne le code de 6 caractères à ses amis, et le dernier avec des cartes en main est le *durak*.
+Le jeu de cartes russe, jouable en ligne de 2 à 6 joueurs. On crée un salon, on donne le code de 6 caractères (ou le lien qui le contient) à ses amis, et le dernier avec des cartes en main est le *durak*.
 
 Les règles suivent [le PDF d'origine](docs/maquettes.html#regles), avec ces lectures validées :
 
 - **Relance** : uniquement avec la valeur de la dernière carte d'attaque ou de sa défense.
 - **Tour suivant** : le voisin du dernier attaquant, côté opposé au défenseur, attaque le dernier attaquant (sens constant, même après un ramassage).
-- **Passer** : un joueur qui a passé ne peut plus relancer pendant ce pli.
+- **Passer** : un joueur qui passe son tour, volontairement ou faute de carte, ne peut plus relancer pendant ce pli.
+- **Korol** : le premier à vider sa main. Le durak de la partie précédente défend en premier à la suivante.
 - **Pas d'égalité** : si l'attaquant et le défenseur se vident sur le même pli, le défenseur est le durak.
 - **3 poses d'affilée** : une carte posée en attaque sur 2 plis consécutifs ne peut pas l'être au 3ᵉ.
 - À 6 joueurs la pioche est vide après la donne : la dernière carte distribuée donne l'atout.

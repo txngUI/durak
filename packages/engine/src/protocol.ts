@@ -16,6 +16,18 @@ export interface RoomPlayer {
   inResults: boolean;
 }
 
+export const CHAT_MAX_LENGTH = 200;
+export const CHAT_HISTORY = 60;
+
+export interface ChatMessage {
+  id: number;
+  /** Id du joueur, ou null pour un message du salon (arrivée, départ…). */
+  from: string | null;
+  name: string;
+  text: string;
+  at: number;
+}
+
 export interface RoomSettings {
   /** Temps par action en secondes, 0 = illimité. */
   turnSeconds: number;
@@ -36,6 +48,7 @@ export interface RoomView {
   serverNow: number;
   /** Ids des joueurs de la partie, dans l'ordre des places (pour relier vue de jeu et salon). */
   gamePlayerIds: string[];
+  chat: ChatMessage[];
 }
 
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -56,6 +69,7 @@ export interface ClientToServer {
   'room:start': (ack: (r: Ack) => void) => void;
   'room:toLobby': (ack: (r: Ack) => void) => void;
   'game:action': (a: Action, ack: (r: Ack) => void) => void;
+  'chat:send': (p: { text: string }, ack: (r: Ack) => void) => void;
 }
 
 export interface ServerToClient {

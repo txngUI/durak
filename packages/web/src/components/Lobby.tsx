@@ -2,20 +2,21 @@ import { MAX_PLAYERS, MIN_PLAYERS, type RoomView, TURN_SECONDS_OPTIONS } from '@
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { avatarColors, initial } from '../format';
-import { useStore } from '../store';
+import { inviteLink, useStore } from '../store';
+import { Chat } from './Chat';
 
 export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }) {
   const { start, leave, setTurnSeconds, reorder, toast } = useStore();
   const isHost = room.you === room.hostId;
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const count = room.players.length;
   const waiting = room.players.filter((p) => p.inResults).map((p) => p.name);
 
-  const copy = async () => {
+  const copy = async (what: 'code' | 'link') => {
     try {
-      await navigator.clipboard.writeText(room.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(what === 'code' ? room.code : inviteLink(room.code));
+      setCopied(what);
+      setTimeout(() => setCopied(null), 1500);
     } catch {
       toast('Copie impossible : note le code affiché.', 'info');
     }
@@ -41,11 +42,14 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
               <span className="code" aria-label={`Code du salon ${room.code.split('').join(' ')}`}>
                 {room.code}
               </span>
-              <button type="button" className="btn ghost small" onClick={copy}>
-                {copied ? 'Code copié' : 'Copier le code'}
+              <button type="button" className="btn ghost small" onClick={() => copy('code')}>
+                {copied === 'code' ? 'Code copié' : 'Copier le code'}
+              </button>
+              <button type="button" className="btn ghost small" onClick={() => copy('link')}>
+                {copied === 'link' ? 'Lien copié' : 'Copier le lien'}
               </button>
             </div>
-            <div className="hint">Donne ce code à tes amis pour qu’ils rejoignent la table.</div>
+            <div className="hint">Donne ce code ou le lien à tes amis pour qu’ils rejoignent la table.</div>
           </div>
         </div>
 
@@ -148,6 +152,9 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
             )}
           </div>
         </div>
+        <section className="lobby-chat" aria-label="Chat du salon">
+          <Chat room={room} />
+        </section>
         <div>
           <button type="button" className="linkish" onClick={onRules}>
             Règles du jeu
