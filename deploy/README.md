@@ -70,7 +70,7 @@ docker inspect caddy-caddy-1 --format '{{range $k, $v := .NetworkSettings.Networ
 docker inspect caddy-caddy-1 --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}'
 ```
 
-Si le réseau ne s'appelle pas `caddy_default`, corrige la ligne `name:` en bas de `~/durak/docker-compose.yml`. Puis démarre le jeu une première fois :
+Ici le réseau s'appelle `web` et la config de Caddy est dans `/root/caddy`. S'ils changent un jour, corrige la ligne `name:` en bas de `~/durak/docker-compose.yml`. Puis démarre le jeu une première fois :
 
 ```bash
 cd ~/durak && docker compose up -d

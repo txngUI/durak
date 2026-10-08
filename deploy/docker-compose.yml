@@ -20,4 +20,4 @@ networks:
   caddy:
     external: true
     # Nom du réseau du conteneur caddy-caddy-1 (voir deploy/README.md, étape 5).
-    name: caddy_default
+    name: web
