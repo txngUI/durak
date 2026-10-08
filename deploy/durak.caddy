@@ -1,0 +1,8 @@
+# À placer sur le VPS dans /root/caddy/sites/durak.caddy (importé par le Caddyfile principal).
+# Caddy obtient le certificat HTTPS tout seul et gère les WebSockets sans configuration.
+# `durak` est le nom du conteneur du jeu, joignable via le réseau Docker partagé `web`.
+
+durak.tanguydavid.fr {
+	encode zstd gzip
+	reverse_proxy durak:3000
+}

@@ -76,7 +76,7 @@ Ici le réseau s'appelle `web` et la config de Caddy est dans `/root/caddy`. S'i
 cd ~/durak && docker compose up -d
 ```
 
-Ajoute le bloc de `deploy/Caddyfile` au Caddyfile qui se trouve dans le dossier de Caddy, puis recharge-le sans coupure :
+Copie `deploy/durak.caddy` dans `/root/caddy/sites/durak.caddy` (le Caddyfile principal importe `sites/*.caddy`), puis recharge Caddy sans coupure :
 
 ```bash
 docker exec caddy-caddy-1 caddy reload --config /etc/caddy/Caddyfile

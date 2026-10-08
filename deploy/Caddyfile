@@ -1,8 +1,0 @@
-# Bloc à ajouter au Caddyfile de ton conteneur Caddy (caddy-caddy-1).
-# Caddy obtient le certificat HTTPS tout seul et gère les WebSockets sans configuration.
-# `durak` est le nom du conteneur du jeu, joignable car les deux partagent le même réseau Docker.
-
-durak.tanguydavid.fr {
-	encode zstd gzip
-	reverse_proxy durak:3000
-}
