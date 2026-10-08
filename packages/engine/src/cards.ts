@@ -66,8 +66,8 @@ export function shuffle<T>(items: T[], rng: () => number): T[] {
   return out;
 }
 
-/** Tri d'affichage d'une main : couleurs regroupées, atouts à droite, rangs croissants. */
+/** Tri d'affichage d'une main : du 6 à l'As ; à valeur égale, l'atout en dernier. */
 export function sortHand(hand: Card[], trump: Suit): Card[] {
   const order = (s: Suit) => (s === trump ? 9 : SUITS.indexOf(s));
-  return hand.slice().sort((a, b) => order(a.s) - order(b.s) || a.r - b.r);
+  return hand.slice().sort((a, b) => a.r - b.r || order(a.s) - order(b.s));
 }

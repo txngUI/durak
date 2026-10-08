@@ -7,6 +7,8 @@ export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 6;
 export const TURN_SECONDS_OPTIONS = [15, 30, 45, 60, 0] as const; // 0 = sans limite
 export const NAME_MAX_LENGTH = 16;
+/** Nombre de couleurs d'avatar proposées (assez pour 6 joueurs avec du choix). */
+export const PLAYER_COLORS = 8;
 
 export interface RoomPlayer {
   id: string;
@@ -14,6 +16,8 @@ export interface RoomPlayer {
   connected: boolean;
   /** Regarde encore l'écran de fin de la partie précédente. */
   inResults: boolean;
+  /** Couleur d'avatar choisie (0 à PLAYER_COLORS - 1), unique dans le salon. */
+  color: number;
 }
 
 export const CHAT_MAX_LENGTH = 200;
@@ -48,6 +52,8 @@ export interface RoomView {
   serverNow: number;
   /** Ids des joueurs de la partie, dans l'ordre des places (pour relier vue de jeu et salon). */
   gamePlayerIds: string[];
+  /** Couleur de chaque place de la partie (même pour un joueur parti). */
+  gameColors: number[];
   chat: ChatMessage[];
 }
 
@@ -66,6 +72,8 @@ export interface ClientToServer {
   'room:leave': () => void;
   'room:settings': (p: Partial<RoomSettings>, ack: (r: Ack) => void) => void;
   'room:reorder': (p: { order: string[] }, ack: (r: Ack) => void) => void;
+  'room:kick': (p: { playerId: string }, ack: (r: Ack) => void) => void;
+  'room:color': (p: { color: number }, ack: (r: Ack) => void) => void;
   'room:start': (ack: (r: Ack) => void) => void;
   'room:toLobby': (ack: (r: Ack) => void) => void;
   'game:action': (a: Action, ack: (r: Ack) => void) => void;

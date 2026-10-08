@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { beats, cardId, createRng } from '../src/cards';
+import { beats, cardId, createRng, sortHand } from '../src/cards';
 import {
   type Action,
   type GameState,
@@ -317,6 +317,12 @@ describe('fin de partie', () => {
     expect(s.durak).toBe(0);
     expect(s.players[1].place).toBe(0);
     expect(s.players[0].place).toBeNull();
+  });
+});
+
+describe('affichage', () => {
+  it('trie la main du 6 à l’As, l’atout en dernier à valeur égale', () => {
+    expect(sortHand(cs('AS 7H 10C 7C JD 6S'), 'H')).toEqual(cs('6S 7C 7H 10C JD AS'));
   });
 });
 

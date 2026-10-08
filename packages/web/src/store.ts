@@ -52,6 +52,8 @@ interface State {
   reorder: (order: string[]) => Promise<boolean>;
   act: (a: Action) => Promise<boolean>;
   sendChat: (text: string) => Promise<boolean>;
+  kick: (playerId: string) => Promise<boolean>;
+  setColor: (color: number) => Promise<boolean>;
   /** Id du dernier message de chat lu, pour le compteur de non-lus. */
   chatSeen: number;
   markChatSeen: () => void;
@@ -156,6 +158,8 @@ export const useStore = create<State>((set, get) => {
     reorder: async (order) => !!(await request((ack) => socket.emit('room:reorder', { order }, ack))),
     act: async (a) => !!(await request((ack) => socket.emit('game:action', a, ack))),
     sendChat: async (text) => !!(await request((ack) => socket.emit('chat:send', { text }, ack))),
+    kick: async (playerId) => !!(await request((ack) => socket.emit('room:kick', { playerId }, ack))),
+    setColor: async (color) => !!(await request((ack) => socket.emit('room:color', { color }, ack))),
     chatSeen: 0,
     markChatSeen: () => set({ chatSeen: get().room?.chat.at(-1)?.id ?? 0 }),
   };

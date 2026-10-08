@@ -297,6 +297,10 @@ button {
 .card.dim {
   filter: brightness(0.6) saturate(0.6);
 }
+.card.resting {
+  filter: brightness(0.78) saturate(0.75);
+  transition: filter 0.25s;
+}
 .card.playable {
   cursor: grab;
   box-shadow: 0 0 0 2px var(--glow), 0 10px 22px rgba(0, 0, 0, 0.4);
@@ -1363,4 +1367,62 @@ button {
   .lobby-chat .chat-list {
     height: 110px;
   }
+}
+
+/* ---------- Salon : couleurs et retrait ---------- */
+.colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.swatch:hover:not(:disabled) {
+  transform: scale(1.12);
+}
+.swatch.on {
+  box-shadow: 0 0 0 3px var(--felt), 0 0 0 5px var(--ivory);
+}
+.swatch:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+.icon-btn.kick:hover {
+  background: var(--danger);
+  color: #fff;
+}
+.seat.kick-confirm {
+  border-color: var(--danger);
+  background: rgba(201, 70, 60, 0.14);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Badge hôte ---------- */
+.host-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-family: var(--body);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.opp .name .host-badge {
+  margin-left: 0;
 }

@@ -1,12 +1,16 @@
 import { MAX_PLAYERS, MIN_PLAYERS, type RoomView, TURN_SECONDS_OPTIONS } from '@durak/engine';
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import { avatarColors, initial } from '../format';
+import { AVATAR_COLORS, COLOR_NAMES, avatarColors, initial } from '../format';
 import { inviteLink, useStore } from '../store';
 import { Chat } from './Chat';
+import { HostBadge } from './HostBadge';
 
 export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }) {
-  const { start, leave, setTurnSeconds, reorder, toast } = useStore();
+  const { start, leave, setTurnSeconds, reorder, toast, kick, setColor } = useStore();
+  const [confirmKick, setConfirmKick] = useState<string | null>(null);
+  const myColor = room.players.find((p) => p.id === room.you)?.color ?? 0;
+  const takenColors = new Set(room.players.filter((p) => p.id !== room.you).map((p) => p.color));
   const isHost = room.you === room.hostId;
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const count = room.players.length;
@@ -62,9 +66,31 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
                   Place libre
                 </li>
               );
-            const [bg, fg] = avatarColors(i);
+            const [bg, fg] = avatarColors(p.color);
+            if (confirmKick === p.id)
+              return (
+                <li key={p.id} className="seat kick-confirm">
+                  <span>
+                    Retirer <b>{p.name}</b> ?
+                  </span>
+                  <span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                    <button type="button" className="btn ghost small" onClick={() => setConfirmKick(null)}>
+                      Non
+                    </button>
+                    <button
+                      type="button"
+                      className="btn danger small"
+                      onClick={() => {
+                        setConfirmKick(null);
+                        kick(p.id);
+                      }}
+                    >
+                      Retirer
+                    </button>
+                  </span>
+                </li>
+              );
             const tags = [
-              p.id === room.hostId ? 'Hôte' : null,
               p.id === room.you ? 'toi' : null,
               p.id === room.lastDurakId ? 'durak de la dernière partie' : null,
               !p.connected ? 'déconnecté' : null,
@@ -76,11 +102,25 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
                   {initial(p.name)}
                 </span>
                 <div className="who">
-                  <b>{p.name}</b>
+                  <b>
+                    {p.name}
+                    {p.id === room.hostId && <HostBadge />}
+                  </b>
                   <small>{tags.join(' · ') || 'Prêt'}</small>
                 </div>
                 {isHost && count > 1 ? (
                   <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                    {p.id !== room.you && (
+                      <button
+                        type="button"
+                        className="icon-btn kick"
+                        aria-label={`Retirer ${p.name} du salon`}
+                        title="Retirer du salon"
+                        onClick={() => setConfirmKick(p.id)}
+                      >
+                        ✕
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="icon-btn"
@@ -107,6 +147,27 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
             );
           })}
         </ol>
+
+        <div className="colors" role="radiogroup" aria-label="Ta couleur">
+          <span className="hint">Ta couleur :</span>
+          {AVATAR_COLORS.map(([bg], c) => {
+            const taken = takenColors.has(c);
+            return (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={c === myColor}
+                aria-label={`${COLOR_NAMES[c]}${taken ? ' (prise)' : ''}`}
+                title={taken ? `${COLOR_NAMES[c]} : déjà prise` : COLOR_NAMES[c]}
+                className={`swatch ${c === myColor ? 'on' : ''}`}
+                style={{ background: bg }}
+                disabled={taken}
+                onClick={() => c !== myColor && setColor(c)}
+              />
+            );
+          })}
+        </div>
 
         <div className="foot">
           <div className="hint" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

@@ -1,17 +1,21 @@
 import type { ReactNode } from 'react';
 import { type Card, type LogEntry, type PlayerView, SUIT_NAME, SUIT_SYMBOL, cardLabel, rankLabel } from '@durak/engine';
 
-const AVATAR_COLORS = [
+/** Couleurs d'avatar [fond, texte], bien distinctes entre elles sur le tapis. */
+export const AVATAR_COLORS = [
   ['#d8ae55', '#2a1d05'],
   ['#6fa8a6', '#082022'],
   ['#c9463c', '#ffffff'],
-  ['#4b5d8a', '#ffffff'],
-  ['#8a6fb0', '#ffffff'],
-  ['#5f8f4e', '#ffffff'],
+  ['#4f6fd0', '#ffffff'],
+  ['#9b6fc9', '#ffffff'],
+  ['#5f9a4c', '#ffffff'],
+  ['#e0864a', '#2a1405'],
+  ['#d46a9f', '#ffffff'],
 ];
+export const COLOR_NAMES = ['Or', 'Sarcelle', 'Rouge', 'Bleu', 'Violet', 'Vert', 'Orange', 'Rose'];
 
-/** Couleur d'avatar stable, choisie par la place à la table. */
-export const avatarColors = (seat: number) => AVATAR_COLORS[seat % AVATAR_COLORS.length];
+/** Couleur d'avatar choisie par le joueur. */
+export const avatarColors = (color: number) => AVATAR_COLORS[((color % AVATAR_COLORS.length) + AVATAR_COLORS.length) % AVATAR_COLORS.length];
 export const initial = (name: string) => name.trim().charAt(0).toUpperCase() || '?';
 
 export function logText(e: LogEntry, name: (p: number) => string): { who?: string; text: string; tone?: 'red' } {
@@ -49,7 +53,9 @@ export function promptFor(v: PlayerView, name: (p: number) => string): { node: R
   const yours = v.actor === you;
   const last = v.table[v.table.length - 1];
   if (v.phase === 'finished') return { node: 'Partie terminée.', yours: false };
-  if (v.players[you] && v.players[you].place !== null) return { node: 'Tu es sorti : tu regardes la fin de la partie.', yours: false };
+  const place = v.players[you]?.place ?? null;
+  if (place === 0) return { node: <>♛ <b>Tu es le Korol !</b> Profite de la fin de la partie.</>, yours: false };
+  if (place !== null) return { node: `Tu as fini ${place + 1}e : tu regardes la fin de la partie.`, yours: false };
 
   switch (v.phase) {
     case 'chooseAttacker':

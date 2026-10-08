@@ -101,6 +101,7 @@ describe('salons', () => {
     const { member: b } = rooms.join(room.code, 'B');
     rooms.leave(room, a.id);
     expect(room.hostId).toBe(b.id);
+    expect(room.chat.at(-1)?.text).toBe('B est maintenant l’hôte du salon.');
     rooms.leave(room, b.id);
     expect(rooms.get(room.code)).toBeUndefined();
   });
@@ -172,5 +173,33 @@ describe('salons', () => {
     rooms.start(room, a.id);
     expect(room.game!.defender).toBe(1);
     expect(room.game!.log[0]).toMatchObject({ t: 'start', reason: 'durak' });
+  });
+
+  it('l’hôte peut retirer un joueur du salon, pas pendant une partie', () => {
+    const { rooms } = setup();
+    const { room, member: a } = rooms.create('A');
+    const { member: b } = rooms.join(room.code, 'B');
+    const { member: c } = rooms.join(room.code, 'C');
+    expect(() => rooms.kick(room, b.id, c.id)).toThrow(/hôte/);
+    expect(() => rooms.kick(room, a.id, a.id)).toThrow(/toi-même/);
+    rooms.kick(room, a.id, c.id);
+    expect(room.members.map((m) => m.name)).toEqual(['A', 'B']);
+    expect(() => rooms.resume(room.code, c.token)).toThrow();
+    rooms.start(room, a.id);
+    expect(() => rooms.kick(room, a.id, b.id)).toThrow(/pendant une partie/);
+  });
+
+  it('chaque joueur a une couleur unique qu’il peut changer', () => {
+    const { rooms } = setup();
+    const { room, member: a } = rooms.create('A');
+    const { member: b } = rooms.join(room.code, 'B');
+    expect([a.color, b.color]).toEqual([0, 1]);
+    expect(() => rooms.setColor(room, b.id, 0)).toThrow(/déjà prise/);
+    rooms.setColor(room, b.id, 7);
+    expect(rooms.viewFor(room, a.id).players.map((p) => p.color)).toEqual([0, 7]);
+    const { member: c } = rooms.join(room.code, 'C');
+    expect(c.color).toBe(1);
+    rooms.start(room, a.id);
+    expect(room.gameColors).toEqual([0, 7, 1]);
   });
 });

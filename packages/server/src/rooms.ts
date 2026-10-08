@@ -10,6 +10,7 @@ import {
   MAX_PLAYERS,
   MIN_PLAYERS,
   NAME_MAX_LENGTH,
+  PLAYER_COLORS,
   TURN_SECONDS_OPTIONS,
   applyAction,
   createGame,
@@ -36,6 +37,7 @@ export interface Member {
   inResults: boolean;
   /** Horodatages des derniers messages, pour limiter le flood. */
   chatTimes: number[];
+  color: number;
 }
 
 export interface Room {
@@ -45,6 +47,7 @@ export interface Room {
   settings: RoomSettings;
   game: GameState | null;
   gamePlayerIds: string[];
+  gameColors: number[];
   lastDurakId: string | null;
   /** Pseudo du dernier durak : le reconnaît s'il a quitté puis rejoint le salon. */
   lastDurakName: string | null;
@@ -70,7 +73,7 @@ function cleanName(name: unknown): string {
 }
 
 const newId = () => randomBytes(8).toString('hex');
-const newMember = (name: string): Member => ({
+const newMember = (name: string, color = 0): Member => ({
   id: newId(),
   token: newId() + newId(),
   name,
@@ -78,7 +81,15 @@ const newMember = (name: string): Member => ({
   left: false,
   inResults: false,
   chatTimes: [],
+  color,
 });
+
+/** Première couleur libre du salon. */
+const freeColor = (room: Room) => {
+  const used = new Set(room.members.filter((m) => !m.left).map((m) => m.color));
+  for (let c = 0; c < PLAYER_COLORS; c++) if (!used.has(c)) return c;
+  return 0;
+};
 
 export class Rooms {
   private rooms = new Map<string, Room>();
@@ -108,6 +119,7 @@ export class Rooms {
       settings: { turnSeconds: 30 },
       game: null,
       gamePlayerIds: [],
+      gameColors: [],
       lastDurakId: null,
       lastDurakName: null,
       deadline: null,
@@ -129,7 +141,7 @@ export class Rooms {
     if (room.members.length >= MAX_PLAYERS) throw new RoomError('Ce salon est complet (6 joueurs).');
     if (room.members.some((m) => m.name.toLowerCase() === clean.toLowerCase()))
       throw new RoomError('Ce pseudo est déjà pris dans ce salon.');
-    const member = newMember(clean);
+    const member = newMember(clean, freeColor(room));
     room.members.push(member);
     room.idleSince = null;
     this.system(room, `${clean} a rejoint le salon.`);
@@ -180,7 +192,10 @@ export class Rooms {
       this.close(room);
       return;
     }
-    if (!present.some((m) => m.id === room.hostId)) room.hostId = present[0].id;
+    if (!present.some((m) => m.id === room.hostId)) {
+      room.hostId = present[0].id;
+      this.system(room, `${present[0].name} est maintenant l’hôte du salon.`);
+    }
     if (!room.members.some((x) => x.connected)) room.idleSince = Date.now();
     this.closeResultsIfDone(room);
     this.schedule(room);
@@ -192,6 +207,7 @@ export class Rooms {
     if (room.game?.phase !== 'finished' || room.members.some((m) => m.inResults)) return;
     room.game = null;
     room.gamePlayerIds = [];
+    room.gameColors = [];
     this.dropLeavers(room);
   }
 
@@ -231,6 +247,7 @@ export class Rooms {
     this.dropLeavers(room);
     if (room.members.length < MIN_PLAYERS) throw new RoomError('Il faut au moins 2 joueurs pour lancer la partie.');
     room.gamePlayerIds = room.members.map((m) => m.id);
+    room.gameColors = room.members.map((m) => m.color);
     // Le durak de la partie précédente défend en premier, même s'il a quitté puis rejoint le salon.
     const durak =
       room.members.find((m) => m.id === room.lastDurakId) ??
@@ -315,6 +332,29 @@ export class Rooms {
     if (room.hostId !== by) throw new RoomError('Seul l’hôte du salon peut faire ça.');
   }
 
+  /** L'hôte retire un joueur du salon (hors partie en cours). Renvoie le joueur retiré. */
+  kick(room: Room, by: string, targetId: string): Member {
+    this.requireHost(room, by);
+    if (room.game && room.game.phase !== 'finished') throw new RoomError('Impossible de retirer un joueur pendant une partie.');
+    if (targetId === by) throw new RoomError('Tu ne peux pas te retirer toi-même : utilise « Quitter ».');
+    const target = room.members.find((m) => m.id === targetId && !m.left);
+    if (!target) throw new RoomError('Ce joueur n’est plus dans le salon.');
+    room.members = room.members.filter((m) => m.id !== targetId);
+    this.system(room, `${target.name} a été retiré du salon par l’hôte.`);
+    this.afterMembershipChange(room);
+    return target;
+  }
+
+  setColor(room: Room, by: string, color: number) {
+    const m = room.members.find((x) => x.id === by);
+    if (!m) throw new RoomError('Tu n’es pas dans ce salon.');
+    if (!Number.isInteger(color) || color < 0 || color >= PLAYER_COLORS) throw new RoomError('Couleur invalide.');
+    if (room.members.some((x) => x.id !== by && !x.left && x.color === color))
+      throw new RoomError('Cette couleur est déjà prise.');
+    m.color = color;
+    this.notify(room);
+  }
+
   /** Message d'un joueur, censuré et limité contre le flood. */
   chat(room: Room, memberId: string, raw: unknown) {
     const m = room.members.find((x) => x.id === memberId);
@@ -359,7 +399,7 @@ export class Rooms {
       hostId: room.hostId,
       players: room.members
         .filter((m) => !m.left)
-        .map((m) => ({ id: m.id, name: m.name, connected: m.connected, inResults: m.inResults })),
+        .map((m) => ({ id: m.id, name: m.name, connected: m.connected, inResults: m.inResults, color: m.color })),
       settings: room.settings,
       status: playing ? 'playing' : 'lobby',
       lastDurakId: room.lastDurakId,
@@ -367,6 +407,7 @@ export class Rooms {
       deadline: room.deadline,
       serverNow: Date.now(),
       gamePlayerIds: room.gamePlayerIds,
+      gameColors: room.gameColors,
       chat: room.chat,
     };
   }

@@ -158,6 +158,28 @@ io.on('connection', (socket: Client) => {
     }),
   );
 
+  socket.on('room:kick', (p, ack) =>
+    guard(ack, () => {
+      const { room, memberId } = current(socket);
+      const kicked = rooms.kick(room, memberId, String(p?.playerId ?? ''));
+      for (const s of socketsOf.get(kicked.id) ?? []) {
+        s.data.code = undefined;
+        s.data.memberId = undefined;
+        s.emit('room:closed', 'L’hôte t’a retiré du salon.');
+      }
+      socketsOf.delete(kicked.id);
+      return {};
+    }),
+  );
+
+  socket.on('room:color', (p, ack) =>
+    guard(ack, () => {
+      const { room, memberId } = current(socket);
+      rooms.setColor(room, memberId, Number(p?.color));
+      return {};
+    }),
+  );
+
   socket.on('room:start', (ack) =>
     guard(ack, () => {
       const { room, memberId } = current(socket);

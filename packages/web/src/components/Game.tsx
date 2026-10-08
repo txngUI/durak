@@ -16,6 +16,7 @@ import { useStore } from '../store';
 import { Confetti, Medal } from './Celebration';
 import { Chat, useUnreadChat } from './Chat';
 import { FLIGHT_SECONDS, type Flight, Flights } from './Flights';
+import { HostBadge } from './HostBadge';
 import { Modal } from './Modal';
 import { PlayingCard } from './PlayingCard';
 
@@ -55,6 +56,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
   const { act, leave, toLobby } = useStore();
   const clockOffset = useStore((s) => s.clockOffset);
   const name = (p: number) => v.players[p]?.name ?? '?';
+  const colorOf = (p: number) => room.gameColors[p] ?? p;
   const connected = (p: number) => room.players.find((x) => x.id === room.gamePlayerIds[p])?.connected ?? false;
   const n = v.players.length;
   const me = v.players[v.you];
@@ -269,6 +271,8 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
   } as React.CSSProperties;
   const avail = mobile ? vw - 24 : Math.min(vw - 420, 900);
   const count = v.hand.length;
+  /** Hors de ton tour, les cartes descendent d'un cinquième de leur hauteur. */
+  const restDrop = Math.round(cw * 0.3);
   const overlap = count > 1 ? Math.max(-cw * 0.72, Math.min(mobile ? -10 : -14, (avail - count * cw) / (count - 1))) : 0;
 
   // --- Adversaires, dans l'ordre de la table à partir de ta gauche ----------
@@ -335,7 +339,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         {opponents.map((p, i) => {
           const m = opponents.length;
           const norm = m > 1 ? Math.abs(i - (m - 1) / 2) / ((m - 1) / 2) : 0;
-          const [bg, fg] = avatarColors(p);
+          const [bg, fg] = avatarColors(colorOf(p));
           const role = roleOf(p);
           const pl = v.players[p];
           return (
@@ -361,6 +365,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                   {initial(pl.name)}
                 </span>
                 <span className="n">{pl.name}</span>
+                {room.gamePlayerIds[p] === room.hostId && <HostBadge />}
                 {role && <span className={`role ${role.cls}`}>{role.text}</span>}
               </div>
               <span className="count">
@@ -478,11 +483,12 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
           <div className="who">
             <span
               className={`av ${v.actor === v.you ? 'active' : ''}`}
-              style={{ background: avatarColors(v.you)[0], color: avatarColors(v.you)[1] }}
+              style={{ background: avatarColors(colorOf(v.you))[0], color: avatarColors(colorOf(v.you))[1] }}
             >
               {initial(me?.name ?? '')}
             </span>
             {me?.name} (toi)
+            {room.you === room.hostId && <HostBadge />}
             {roleOf(v.you) && <span className={`role ${roleOf(v.you)!.cls}`}>{roleOf(v.you)!.text}</span>}
           </div>
           <div ref={handRef} className="hand" style={{ '--overlap': `${overlap}px` } as React.CSSProperties}>
@@ -492,7 +498,8 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                 const isSel = sameCard(c, selected);
                 const blocked = v.blocked.some((b) => sameCard(b, c)) && v.phase === 'attack';
                 const cls = [
-                  ok ? 'playable' : yourTurn ? 'dim' : '',
+                  // Ton tour : jouables levées, les autres grisées. Sinon la main est « rangée ».
+                  ok ? 'playable' : yourTurn ? 'dim' : 'resting',
                   isSel ? 'selected' : '',
                   blocked ? 'blocked' : '',
                 ].join(' ');
@@ -509,7 +516,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                     // Masquée sans animation : reste fiable même si l'onglet est en arrière-plan.
                     style={{ zIndex: isSel ? 5 : undefined, visibility: hidden.has(cardKey(c)) ? 'hidden' : undefined }}
                     initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: 1, y: isSel ? -28 : ok ? -14 : 0 }}
+                    animate={{ opacity: 1, y: isSel ? -28 : ok ? -14 : yourTurn ? 0 : restDrop }}
                     whileHover={ok ? { y: isSel ? -30 : -22 } : undefined}
                     exit={{ opacity: 0 }}
                     drag={ok}
@@ -656,7 +663,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
           </p>
           <div className="choices">
             {v.legal.chooseTargets.map((t) => {
-              const [bg, fg] = avatarColors(t);
+              const [bg, fg] = avatarColors(colorOf(t));
               const side = t === (v.you + 1) % n ? 'à ta gauche' : 'à ta droite';
               return (
                 <button key={t} type="button" className="choice" onClick={() => send({ type: 'chooseAttacker', target: t })}>

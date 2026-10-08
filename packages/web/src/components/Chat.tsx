@@ -1,6 +1,7 @@
 import { CHAT_MAX_LENGTH, type RoomView } from '@durak/engine';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
+import { HostBadge } from './HostBadge';
 
 /** Fil de discussion du salon. `active` : visible à l'écran (marque les messages comme lus). */
 export function Chat({ room, active = true, autoFocus = false }: { room: RoomView; active?: boolean; autoFocus?: boolean }) {
@@ -33,7 +34,8 @@ export function Chat({ room, active = true, autoFocus = false }: { room: RoomVie
             </p>
           ) : (
             <p key={m.id} className={m.from === room.you ? 'mine' : ''}>
-              <b>{m.name}</b> {m.text}
+              <b>{m.name}</b>
+              {m.from === room.hostId && <HostBadge />} {m.text}
             </p>
           ),
         )}
