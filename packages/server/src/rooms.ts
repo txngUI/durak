@@ -5,8 +5,10 @@ import {
   CHAT_MAX_LENGTH,
   type ChatMessage,
   type GameState,
+  type Profile,
   type RoomSettings,
   type RoomView,
+  type StatsSummary,
   MAX_PLAYERS,
   MIN_PLAYERS,
   NAME_MAX_LENGTH,
@@ -18,6 +20,7 @@ import {
   timeoutAction,
   viewFor,
 } from '@durak/engine';
+import type { AccountStore } from './accounts';
 import { censor, containsVulgarity } from './censor';
 
 /** Délai accordé à un joueur déconnecté avant que le serveur joue à sa place. */
@@ -25,6 +28,10 @@ const DISCONNECTED_TURN_SECONDS = 15;
 /** Un salon sans aucun joueur connecté est supprimé après ce délai. */
 const IDLE_ROOM_MS = 10 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+/** Temps laissé à l'annonce de l'atout avant que le minuteur de la première action démarre. */
+export const INTRO_DELAY_MS = 4500;
+/** Délai de grâce après un redémarrage du serveur, le temps que les joueurs se reconnectent. */
+const RESTORE_GRACE_MS = 20_000;
 
 export interface Member {
   id: string;
@@ -38,6 +45,17 @@ export interface Member {
   /** Horodatages des derniers messages, pour limiter le flood. */
   chatTimes: number[];
   color: number;
+  /** Compte du joueur, null pour un invité. */
+  profileId: string | null;
+  avatarUrl: string | null;
+  stats: StatsSummary | null;
+  /** Statistiques avant/après la dernière partie, pour l'écran de fin. */
+  delta: { before: StatsSummary; after: StatsSummary } | null;
+}
+
+/** Identité d'un joueur connecté à un compte, au moment de créer ou rejoindre un salon. */
+export interface AccountIdentity {
+  profile: Profile;
 }
 
 export interface Room {
@@ -56,6 +74,8 @@ export interface Room {
   idleSince: number | null;
   chat: ChatMessage[];
   chatSeq: number;
+  /** Début de la partie en cours (pour l'historique). */
+  startedAt: number | null;
 }
 
 export class RoomError extends Error {}
@@ -65,7 +85,7 @@ export function normalizeCode(input: string): string {
   return raw.length === 6 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
 }
 
-function cleanName(name: unknown): string {
+export function cleanName(name: unknown): string {
   const n = String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX_LENGTH);
   if (!n) throw new RoomError('Choisis un pseudo.');
   if (containsVulgarity(n)) throw new RoomError('Ce pseudo n’est pas accepté. Choisis-en un autre.');
@@ -73,7 +93,7 @@ function cleanName(name: unknown): string {
 }
 
 const newId = () => randomBytes(8).toString('hex');
-const newMember = (name: string, color = 0): Member => ({
+const newMember = (name: string, color = 0, account?: AccountIdentity): Member => ({
   id: newId(),
   token: newId() + newId(),
   name,
@@ -82,6 +102,10 @@ const newMember = (name: string, color = 0): Member => ({
   inResults: false,
   chatTimes: [],
   color,
+  profileId: account?.profile.id ?? null,
+  avatarUrl: account?.profile.avatarUrl ?? null,
+  stats: null,
+  delta: null,
 });
 
 /** Première couleur libre du salon. */
@@ -94,8 +118,14 @@ const freeColor = (room: Room) => {
 export class Rooms {
   private rooms = new Map<string, Room>();
 
-  /** `notify` est appelé à chaque changement d'un salon, pour diffuser l'état aux joueurs. */
-  constructor(private notify: (room: Room) => void) {}
+  /**
+   * `notify` est appelé à chaque changement d'un salon, pour diffuser l'état aux joueurs.
+   * `store` (facultatif) : comptes et statistiques ; sans lui, tout le monde joue en invité.
+   */
+  constructor(
+    private notify: (room: Room) => void,
+    private store: AccountStore | null = null,
+  ) {}
 
   get(code: string) {
     return this.rooms.get(normalizeCode(code));
@@ -110,8 +140,10 @@ export class Rooms {
     }
   }
 
-  create(name: string): { room: Room; member: Member } {
-    const member: Member = newMember(cleanName(name));
+  create(name: string, account?: AccountIdentity): { room: Room; member: Member } {
+    const member: Member = account
+      ? newMember(account.profile.username, account.profile.color, account)
+      : newMember(cleanName(name));
     const room: Room = {
       code: this.newCode(),
       hostId: member.id,
@@ -127,25 +159,39 @@ export class Rooms {
       idleSince: null,
       chat: [],
       chatSeq: 0,
+      startedAt: null,
     };
     this.rooms.set(room.code, room);
+    this.refreshStats(room);
     return { room, member };
   }
 
-  join(code: string, name: string): { room: Room; member: Member } {
+  join(code: string, name: string, account?: AccountIdentity): { room: Room; member: Member } {
     const room = this.get(code);
     if (!room) throw new RoomError('Aucun salon avec ce code. Vérifie les 6 caractères.');
+    // Un compte déjà présent (autre appareil, onglet fermé) retrouve sa place.
+    const already = account && room.members.find((m) => m.profileId === account.profile.id && !m.left);
+    if (already) {
+      already.connected = true;
+      room.idleSince = null;
+      this.schedule(room);
+      this.notify(room);
+      return { room, member: already };
+    }
     if (room.game && room.game.phase !== 'finished')
       throw new RoomError('Une partie est en cours dans ce salon. Réessaie à la fin.');
-    const clean = cleanName(name);
+    const clean = account ? account.profile.username : cleanName(name);
     if (room.members.length >= MAX_PLAYERS) throw new RoomError('Ce salon est complet (6 joueurs).');
     if (room.members.some((m) => m.name.toLowerCase() === clean.toLowerCase()))
       throw new RoomError('Ce pseudo est déjà pris dans ce salon.');
-    const member = newMember(clean, freeColor(room));
+    const taken = new Set(room.members.filter((m) => !m.left).map((m) => m.color));
+    const color = account && !taken.has(account.profile.color) ? account.profile.color : freeColor(room);
+    const member = newMember(clean, color, account);
     room.members.push(member);
     room.idleSince = null;
     this.system(room, `${clean} a rejoint le salon.`);
     this.notify(room);
+    this.refreshStats(room);
     return { room, member };
   }
 
@@ -256,7 +302,10 @@ export class Rooms {
       room.members.map((m) => ({ id: m.id, name: m.name })),
       { previousDurakId: durak?.id ?? null },
     );
-    this.schedule(room);
+    room.startedAt = Date.now();
+    for (const m of room.members) m.delta = null;
+    // Le minuteur de la première action attend la fin de l'annonce de l'atout.
+    this.schedule(room, INTRO_DELAY_MS);
     this.notify(room);
   }
 
@@ -288,14 +337,15 @@ export class Rooms {
       room.lastDurakName = r.state.durak === null ? null : r.state.players[r.state.durak].name;
       // Chacun garde l'écran de fin jusqu'à ce qu'il revienne lui-même au salon.
       for (const m of room.members) m.inResults = m.connected && !m.left && room.gamePlayerIds.includes(m.id);
+      this.recordGame(room, r.state);
       this.closeResultsIfDone(room);
     }
     this.schedule(room);
     this.notify(room);
   }
 
-  /** (Re)programme le minuteur de l'action en cours. */
-  private schedule(room: Room) {
+  /** (Re)programme le minuteur de l'action en cours, avec un délai supplémentaire éventuel. */
+  private schedule(room: Room, extraMs = 0) {
     if (room.timer) clearTimeout(room.timer);
     room.timer = null;
     room.deadline = null;
@@ -306,8 +356,88 @@ export class Rooms {
     let seconds = room.settings.turnSeconds;
     if (away) seconds = seconds ? Math.min(seconds, DISCONNECTED_TURN_SECONDS) : DISCONNECTED_TURN_SECONDS;
     if (!seconds) return;
-    room.deadline = Date.now() + seconds * 1000;
-    room.timer = setTimeout(() => this.onTimeout(room), seconds * 1000);
+    const ms = seconds * 1000 + extraMs;
+    room.deadline = Date.now() + ms;
+    room.timer = setTimeout(() => this.onTimeout(room), ms);
+  }
+
+  // -------------------------------------------------------------------------
+  // Comptes et statistiques (asynchrone, ne bloque jamais la partie)
+  // -------------------------------------------------------------------------
+
+  /** Recharge les statistiques des comptes présents dans le salon. */
+  private async refreshStats(room: Room) {
+    const ids = room.members.map((m) => m.profileId).filter((x): x is string => !!x);
+    if (!this.store || ids.length === 0) return;
+    try {
+      const stats = await this.store.stats(ids);
+      for (const m of room.members) if (m.profileId) m.stats = stats.get(m.profileId) ?? m.stats;
+      if (this.rooms.has(room.code)) this.notify(room);
+    } catch (e) {
+      console.error('Statistiques indisponibles :', e);
+    }
+  }
+
+  /** Enregistre la partie terminée, puis calcule l'évolution des stats de chaque compte. */
+  private async recordGame(room: Room, g: GameState) {
+    const seats = room.gamePlayerIds.map((id) => room.members.find((m) => m.id === id) ?? null);
+    const ids = seats.map((m) => m?.profileId).filter((x): x is string => !!x);
+    if (!this.store || ids.length === 0) return;
+    try {
+      const before = await this.store.stats(ids);
+      await this.store.recordGame({
+        roomCode: room.code,
+        startedAt: new Date(room.startedAt ?? Date.now()),
+        endedAt: new Date(),
+        rounds: g.round,
+        trumpSuit: g.trumpSuit,
+        withBots: false,
+        players: g.players.map((p, seat) => ({
+          seat,
+          profileId: seats[seat]?.profileId ?? null,
+          name: p.name,
+          place: p.place,
+          isKorol: p.place === 0,
+          isDurak: g.durak === seat,
+          cardsLeft: p.hand.length,
+        })),
+      });
+      const after = await this.store.stats(ids);
+      for (const m of room.members) {
+        if (!m.profileId || !after.has(m.profileId)) continue;
+        m.stats = after.get(m.profileId)!;
+        m.delta = { before: before.get(m.profileId)!, after: m.stats };
+      }
+      if (this.rooms.has(room.code)) this.notify(room);
+    } catch (e) {
+      console.error('Impossible d’enregistrer la partie :', e);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Sauvegarde et reprise au redémarrage du serveur
+  // -------------------------------------------------------------------------
+
+  /** État de tous les salons, prêt à être écrit sur disque. */
+  snapshot(): string {
+    const rooms = [...this.rooms.values()].map(({ timer: _timer, ...rest }) => rest);
+    return JSON.stringify({ version: 1, savedAt: Date.now(), rooms });
+  }
+
+  /** Recharge les salons sauvegardés. Les joueurs ont un délai de grâce pour revenir. */
+  restore(json: string): number {
+    const data = JSON.parse(json) as { version: number; rooms: Omit<Room, 'timer'>[] };
+    if (data.version !== 1) return 0;
+    for (const saved of data.rooms) {
+      const room: Room = { ...saved, timer: null, idleSince: Date.now() };
+      for (const m of room.members) {
+        m.connected = false;
+        m.chatTimes = [];
+      }
+      this.rooms.set(room.code, room);
+      this.schedule(room, RESTORE_GRACE_MS);
+    }
+    return data.rooms.length;
   }
 
   private onTimeout(room: Room) {
@@ -399,7 +529,16 @@ export class Rooms {
       hostId: room.hostId,
       players: room.members
         .filter((m) => !m.left)
-        .map((m) => ({ id: m.id, name: m.name, connected: m.connected, inResults: m.inResults, color: m.color })),
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          connected: m.connected,
+          inResults: m.inResults,
+          color: m.color,
+          profileId: m.profileId,
+          avatarUrl: m.avatarUrl,
+          stats: m.stats,
+        })),
       settings: room.settings,
       status: playing ? 'playing' : 'lobby',
       lastDurakId: room.lastDurakId,
@@ -409,6 +548,7 @@ export class Rooms {
       gamePlayerIds: room.gamePlayerIds,
       gameColors: room.gameColors,
       chat: room.chat,
+      myDelta: me?.delta ?? null,
     };
   }
 }

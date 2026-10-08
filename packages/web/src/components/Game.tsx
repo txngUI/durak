@@ -56,7 +56,7 @@ const clamp = (min: number, v: number, max: number) => Math.max(min, Math.min(ma
 
 export function Game({ room, onRules }: { room: RoomView; onRules: () => void }) {
   const v = room.game!;
-  const { act, leave, toLobby } = useStore();
+  const { act, leave, toLobby, accountsEnabled, auth, openAuth } = useStore();
   const clockOffset = useStore((s) => s.clockOffset);
   const name = (p: number) => v.players[p]?.name ?? '?';
   const colorOf = (p: number) => room.gameColors[p] ?? p;
@@ -751,6 +751,19 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
               </div>
             )}
           </div>
+          {room.myDelta && <StatsDelta delta={room.myDelta} />}
+          {accountsEnabled && !room.players.find((p) => p.id === room.you)?.profileId && (
+            <div className="cta-guest">
+              Tu as joué en invité : cette partie n’est pas enregistrée.{' '}
+              {auth.signedIn ? (
+                'Reviens au salon : ta prochaine partie comptera.'
+              ) : (
+                <button type="button" className="linkish" onClick={() => openAuth(true)}>
+                  Crée un compte pour garder tes prochaines victoires.
+                </button>
+              )}
+            </div>
+          )}
           <div className="buttons">
             <button type="button" className="btn ghost" onClick={leave}>
               Quitter
@@ -793,6 +806,28 @@ function firstReason(v: PlayerView): string {
     return lowest ? `Tu as l’atout le plus faible : ${cardLabel(lowest)}.` : 'Tu as l’atout le plus faible.';
   }
   return 'Personne n’a d’atout : le sort t’a désigné.';
+}
+
+/** Évolution de tes statistiques après la partie. */
+function StatsDelta({ delta }: { delta: NonNullable<RoomView['myDelta']> }) {
+  const { before, after } = delta;
+  const rank = (r: number | null) => (r === null ? 'non classé' : `${r}e`);
+  const rows: [string, string][] = [
+    ['Parties', `${before.games} → ${after.games}`],
+    ['Korol', `${before.korol} → ${after.korol}`],
+    ['Durak', `${before.durak} → ${after.durak}`],
+  ];
+  if (before.rank !== after.rank || after.rank !== null) rows.push(['Classement', `${rank(before.rank)} → ${rank(after.rank)}`]);
+  return (
+    <div className="delta" aria-label="Évolution de tes statistiques">
+      {rows.map(([k, v]) => (
+        <div key={k}>
+          <span>{k}</span>
+          <b>{v}</b>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** Panneau latéral : bascule entre l'historique de la partie et le chat. */

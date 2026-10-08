@@ -53,7 +53,11 @@ docker run -p 3000:3000 durak
 
 Pour la mise en ligne sur le VPS (Caddy + déploiement automatique depuis GitHub), suis [deploy/README.md](deploy/README.md).
 
-Un seul processus Node sert le front buildé et le temps réel sur le port `PORT` (3000 par défaut). Les salons sont en mémoire : un redémarrage du serveur les efface.
+Un seul processus Node sert le front buildé et le temps réel sur le port `PORT` (3000 par défaut). Les salons vivent en mémoire ; à l'arrêt, le serveur les sauvegarde dans `DATA_DIR` et les reprend au démarrage, donc une mise à jour ne coupe plus les parties.
+
+## Comptes et statistiques (V2)
+
+Optionnels : sans configuration, tout le monde joue en invité. Avec un projet Supabase (Auth + Postgres), les joueurs se connectent avec Discord, Google ou un e-mail, et leurs parties alimentent leur profil et le classement. Le serveur de jeu reste le seul arbitre et le seul à écrire les résultats. Mise en place : [deploy/SUPABASE.md](deploy/SUPABASE.md).
 
 ## Organisation
 
@@ -61,9 +65,10 @@ Un seul processus Node sert le front buildé et le temps réel sur le port `PORT
 | --- | --- |
 | `packages/engine` | Règles du jeu en TypeScript pur, sans dépendance. Partagé par le serveur et le front. |
 | `packages/server` | Node + Socket.IO. Arbitre les parties : chaque joueur ne reçoit que sa main. |
+| `supabase/migrations` | Schéma de la base (profils, parties, statistiques, classement). |
 | `packages/web` | React + Vite + Zustand + Motion. |
 | `docs/maquettes.html` | Maquettes et choix techniques validés. |
 
-## Prévu en V2
+## Suite de la V2
 
-Bots, comptes et statistiques, matchmaking public.
+Bots, puis matchmaking public.

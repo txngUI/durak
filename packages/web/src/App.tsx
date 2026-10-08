@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
+import { LeaderboardModal, ProfileModal } from './components/Account';
+import { AuthModal, PasswordRecovery, ProfileSetup } from './components/AuthPanel';
 import { Game } from './components/Game';
 import { Home } from './components/Home';
 import { Lobby } from './components/Lobby';
@@ -8,6 +10,7 @@ import { useStore } from './store';
 
 export function App() {
   const { room, session, connection, toasts, dismiss } = useStore();
+  const { accountsEnabled, auth, profileView, leaderboardOpen, authOpen, recoveryOpen } = useStore();
   const [rules, setRules] = useState(false);
   // Une fois dans un salon, on retire le code d'invitation de l'adresse.
   useEffect(() => {
@@ -26,6 +29,11 @@ export function App() {
       {connection === 'offline' && <div className="offline">Connexion au serveur perdue. Reconnexion en cours…</div>}
       {screen}
       {rules && <Rules onClose={() => setRules(false)} />}
+      {accountsEnabled && auth.signedIn && !auth.profile && <ProfileSetup />}
+      {profileView && <ProfileModal id={profileView} />}
+      {leaderboardOpen && <LeaderboardModal />}
+      {authOpen && <AuthModal />}
+      {recoveryOpen && <PasswordRecovery />}
       <div className="toasts" aria-live="assertive">
         <AnimatePresence>
           {toasts.map((t) => (

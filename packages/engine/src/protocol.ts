@@ -10,6 +10,37 @@ export const NAME_MAX_LENGTH = 16;
 /** Nombre de couleurs d'avatar proposées (assez pour 6 joueurs avec du choix). */
 export const PLAYER_COLORS = 8;
 
+/** Résumé des statistiques d'un compte (les parties avec bots ne comptent pas). */
+export interface StatsSummary {
+  games: number;
+  korol: number;
+  durak: number;
+  /** Place au classement (% de Korol, à partir de 10 parties), null si pas encore classé. */
+  rank: number | null;
+}
+
+export interface Profile {
+  id: string;
+  username: string;
+  color: number;
+  avatarUrl: string | null;
+}
+
+/** Ce que le navigateur sait de sa connexion côté serveur de jeu. */
+export interface AuthState {
+  signedIn: boolean;
+  /** null : connecté mais pseudo pas encore choisi. */
+  profile: Profile | null;
+  /** Pseudo proposé à la création du profil (nom Discord/Google). */
+  suggestedName: string | null;
+}
+
+/** Configuration publique servie par le serveur (`/config.json`). */
+export interface PublicConfig {
+  supabaseUrl: string | null;
+  supabaseAnonKey: string | null;
+}
+
 export interface RoomPlayer {
   id: string;
   name: string;
@@ -18,6 +49,10 @@ export interface RoomPlayer {
   inResults: boolean;
   /** Couleur d'avatar choisie (0 à PLAYER_COLORS - 1), unique dans le salon. */
   color: number;
+  /** Joueur connecté à un compte (sinon invité). */
+  profileId: string | null;
+  avatarUrl: string | null;
+  stats: StatsSummary | null;
 }
 
 export const CHAT_MAX_LENGTH = 200;
@@ -55,6 +90,8 @@ export interface RoomView {
   /** Couleur de chaque place de la partie (même pour un joueur parti). */
   gameColors: number[];
   chat: ChatMessage[];
+  /** Tes statistiques avant et après la dernière partie (comptes seulement). */
+  myDelta: { before: StatsSummary; after: StatsSummary } | null;
 }
 
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -78,6 +115,9 @@ export interface ClientToServer {
   'room:toLobby': (ack: (r: Ack) => void) => void;
   'game:action': (a: Action, ack: (r: Ack) => void) => void;
   'chat:send': (p: { text: string }, ack: (r: Ack) => void) => void;
+  /** Le navigateur transmet son jeton Supabase (null à la déconnexion). */
+  'auth:set': (p: { token: string | null }, ack: (r: Ack<AuthState>) => void) => void;
+  'profile:save': (p: { username: string; color: number }, ack: (r: Ack<AuthState>) => void) => void;
 }
 
 export interface ServerToClient {

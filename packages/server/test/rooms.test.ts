@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { type Room, Rooms, normalizeCode } from '../src/rooms';
+import { INTRO_DELAY_MS, type Room, Rooms, normalizeCode } from '../src/rooms';
 
 const setup = () => {
   const notified: Room[] = [];
@@ -79,7 +79,7 @@ describe('salons', () => {
     const round = room.game!.round;
     const before = room.game!.log.length;
     expect(room.deadline).not.toBeNull();
-    vi.advanceTimersByTime(30_000);
+    vi.advanceTimersByTime(30_000 + INTRO_DELAY_MS);
     expect(room.game!.log.length).toBeGreaterThan(before);
     expect(room.game!.round).toBe(round);
   });

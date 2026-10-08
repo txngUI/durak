@@ -4,6 +4,14 @@ services:
     image: ghcr.io/txngui/durak:latest
     container_name: durak
     restart: unless-stopped
+    # Clés Supabase (comptes et stats) : fichier .env à côté de ce docker-compose.yml, jamais commité.
+    env_file:
+      - path: .env
+        required: false
+    # Les salons en cours sont sauvegardés ici à chaque arrêt, puis repris au démarrage.
+    volumes:
+      - durak-data:/data
+    stop_grace_period: 20s
     # Caddy (dans Docker) joint le jeu par le réseau partagé, à l'adresse durak:3000.
     networks:
       - caddy
@@ -21,3 +29,6 @@ networks:
     external: true
     # Nom du réseau du conteneur caddy-caddy-1 (voir deploy/README.md, étape 5).
     name: web
+
+volumes:
+  durak-data:

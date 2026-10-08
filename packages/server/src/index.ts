@@ -1,12 +1,37 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server, type Socket } from 'socket.io';
-import type { Ack, ClientToServer, ServerToClient, Session } from '@durak/engine';
-import { type Member, type Room, RoomError, Rooms } from './rooms';
+import {
+  type Ack,
+  type AuthState,
+  type ClientToServer,
+  PLAYER_COLORS,
+  type Profile,
+  type PublicConfig,
+  type ServerToClient,
+  type Session,
+} from '@durak/engine';
+import { type AccountStore, type Identity, UsernameTakenError } from './accounts';
+import { type AccountIdentity, type Member, type Room, RoomError, Rooms, cleanName } from './rooms';
+import { SupabaseAccountStore } from './supabaseStore';
 
 const PORT = Number(process.env.PORT ?? 3000);
+/** Dossier où les salons sont sauvegardés à l'arrêt du serveur (volume Docker en production). */
+const DATA_DIR = process.env.DATA_DIR ?? resolve(fileURLToPath(import.meta.url), '../../.data');
+const SNAPSHOT = join(DATA_DIR, 'rooms.json');
+
+// Comptes : activés seulement si le projet Supabase est configuré.
+const SUPABASE_URL = process.env.SUPABASE_URL || null;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || null;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || null;
+const store: AccountStore | null =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY ? new SupabaseAccountStore(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) : null;
+const publicConfig: PublicConfig = {
+  supabaseUrl: store ? SUPABASE_URL : null,
+  supabaseAnonKey: store ? SUPABASE_ANON_KEY : null,
+};
 const WEB_DIST = resolve(fileURLToPath(import.meta.url), '../../../web/dist');
 
 // ---------------------------------------------------------------------------
@@ -30,6 +55,10 @@ const http = createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/plain' }).end('ok');
     return;
   }
+  if (url.pathname === '/config.json') {
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-cache' }).end(JSON.stringify(publicConfig));
+    return;
+  }
   if (!existsSync(WEB_DIST)) {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('Front non buildé : lance `npm run build`.');
     return;
@@ -48,15 +77,22 @@ const http = createServer((req, res) => {
 // Temps réel
 // ---------------------------------------------------------------------------
 
-type Client = Socket<ClientToServer, ServerToClient, object, { code?: string; memberId?: string }>;
-const io = new Server<ClientToServer, ServerToClient, object, { code?: string; memberId?: string }>(http, {
+interface SocketData {
+  code?: string;
+  memberId?: string;
+  /** Joueur connecté à un compte (jeton vérifié). */
+  identity?: Identity | null;
+  profile?: Profile | null;
+}
+type Client = Socket<ClientToServer, ServerToClient, object, SocketData>;
+const io = new Server<ClientToServer, ServerToClient, object, SocketData>(http, {
   cors: process.env.NODE_ENV === 'production' ? undefined : { origin: true },
 });
 
 /** Sockets connectées par joueur (un joueur peut avoir plusieurs onglets). */
 const socketsOf = new Map<string, Set<Client>>();
 
-const rooms = new Rooms((room) => broadcast(room));
+const rooms = new Rooms((room) => broadcast(room), store);
 
 function broadcast(room: Room) {
   for (const m of room.members) {
@@ -95,11 +131,11 @@ function current(socket: Client): { room: Room; memberId: string } {
   return { room, memberId: socket.data.memberId };
 }
 
-/** Exécute un handler et répond par un accusé de réception uniforme. */
-function guard<T extends object>(ack: ((r: Ack<T>) => void) | undefined, fn: () => T) {
+/** Exécute un handler (synchrone ou non) et répond par un accusé de réception uniforme. */
+async function guard<T extends object>(ack: ((r: Ack<T>) => void) | undefined, fn: () => T | Promise<T>) {
   const reply = typeof ack === 'function' ? ack : () => {};
   try {
-    reply({ ok: true, ...fn() });
+    reply({ ok: true, ...(await fn()) });
   } catch (e) {
     const error = e instanceof RoomError ? e.message : 'Erreur inattendue du serveur.';
     if (!(e instanceof RoomError)) console.error(e);
@@ -107,17 +143,86 @@ function guard<T extends object>(ack: ((r: Ack<T>) => void) | undefined, fn: () 
   }
 }
 
+// ---------------------------------------------------------------------------
+// Comptes
+// ---------------------------------------------------------------------------
+
+/** Vérifie le jeton Supabase et charge le profil ; un jeton absent ou invalide = invité. */
+async function authenticate(socket: Client, token: unknown): Promise<AuthState> {
+  socket.data.identity = null;
+  socket.data.profile = null;
+  if (store && typeof token === 'string' && token) {
+    const identity = await store.verifyToken(token).catch(() => null);
+    if (identity) {
+      socket.data.identity = identity;
+      socket.data.profile = await store.getProfile(identity.userId).catch(() => null);
+    }
+  }
+  return authState(socket);
+}
+
+const authState = (socket: Client): AuthState => ({
+  signedIn: !!socket.data.identity,
+  profile: socket.data.profile ?? null,
+  suggestedName: socket.data.identity?.suggestedName ?? null,
+});
+
+/** Identité de compte à utiliser pour créer ou rejoindre un salon ; vérifie les pseudos des invités. */
+async function accountFor(socket: Client, guestName: unknown): Promise<AccountIdentity | undefined> {
+  if (socket.data.identity) {
+    if (!socket.data.profile) throw new RoomError('Choisis d’abord ton pseudo.');
+    return { profile: socket.data.profile };
+  }
+  if (store) {
+    const name = cleanName(guestName);
+    const taken = await store.isUsernameTaken(name).catch(() => false);
+    if (taken) throw new RoomError('Ce pseudo appartient à un compte : connecte-toi ou choisis-en un autre.');
+  }
+  return undefined;
+}
+
+io.use(async (socket, next) => {
+  await authenticate(socket as Client, socket.handshake.auth?.token);
+  next();
+});
+
 io.on('connection', (socket: Client) => {
+  socket.on('auth:set', (p, ack) => guard(ack, () => authenticate(socket, p?.token)));
+
+  socket.on('profile:save', (p, ack) =>
+    guard(ack, async () => {
+      const identity = socket.data.identity;
+      if (!store || !identity) throw new RoomError('Connecte-toi pour enregistrer un profil.');
+      const username = cleanName(p?.username);
+      if (username.length < 2) throw new RoomError('Ton pseudo doit faire au moins 2 caractères.');
+      const color = Number(p?.color);
+      if (!Number.isInteger(color) || color < 0 || color >= PLAYER_COLORS) throw new RoomError('Couleur invalide.');
+      try {
+        socket.data.profile = await store.saveProfile(identity.userId, {
+          username,
+          color,
+          avatarUrl: socket.data.profile?.avatarUrl ?? identity.avatarUrl,
+        });
+      } catch (e) {
+        if (e instanceof UsernameTakenError) throw new RoomError('Ce pseudo est déjà pris. Choisis-en un autre.');
+        throw e;
+      }
+      return authState(socket);
+    }),
+  );
+
   socket.on('room:create', (p, ack) =>
-    guard(ack, () => {
-      const { room, member } = rooms.create(p?.name);
+    guard(ack, async () => {
+      const account = await accountFor(socket, p?.name);
+      const { room, member } = rooms.create(p?.name, account);
       return attach(socket, room, member);
     }),
   );
 
   socket.on('room:join', (p, ack) =>
-    guard(ack, () => {
-      const { room, member } = rooms.join(String(p?.code ?? ''), p?.name);
+    guard(ack, async () => {
+      const account = await accountFor(socket, p?.name);
+      const { room, member } = rooms.join(String(p?.code ?? ''), p?.name, account);
       return attach(socket, room, member);
     }),
   );
@@ -221,6 +326,37 @@ io.on('connection', (socket: Client) => {
 
 setInterval(() => rooms.sweep(), 60_000).unref();
 
+// ---------------------------------------------------------------------------
+// Sauvegarde des salons : écrite à l'arrêt (déploiement), relue au démarrage
+// ---------------------------------------------------------------------------
+
+if (existsSync(SNAPSHOT)) {
+  try {
+    const count = rooms.restore(readFileSync(SNAPSHOT, 'utf8'));
+    console.log(`Durak : ${count} salon(s) repris après redémarrage.`);
+  } catch (e) {
+    console.error('Sauvegarde des salons illisible, ignorée :', e);
+  }
+  rmSync(SNAPSHOT, { force: true });
+}
+
+let stopping = false;
+function shutdown(signal: string) {
+  if (stopping) return;
+  stopping = true;
+  try {
+    mkdirSync(DATA_DIR, { recursive: true });
+    writeFileSync(SNAPSHOT, rooms.snapshot());
+    console.log(`Durak : ${signal} reçu, salons sauvegardés.`);
+  } catch (e) {
+    console.error('Impossible de sauvegarder les salons :', e);
+  }
+  io.close();
+  process.exit(0);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 http.on('error', (err: NodeJS.ErrnoException) => {
   if (err.code === 'EADDRINUSE') {
     console.error(
@@ -233,5 +369,5 @@ http.on('error', (err: NodeJS.ErrnoException) => {
 });
 
 http.listen(PORT, () => {
-  console.log(`Durak : serveur prêt sur http://localhost:${PORT}`);
+  console.log(`Durak : serveur prêt sur http://localhost:${PORT} (comptes ${store ? 'activés' : 'désactivés'})`);
 });

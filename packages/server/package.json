@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PORT=${DURAK_SERVER_PORT:-3000} tsx watch src/index.ts",
+    "dev": "PORT=${DURAK_SERVER_PORT:-3000} tsx watch --env-file-if-exists=../../.env src/index.ts",
     "start": "NODE_ENV=production tsx src/index.ts"
   },
   "dependencies": {
     "@durak/engine": "*",
+    "@supabase/supabase-js": "^2.117.3",
     "socket.io": "^4.8.4",
     "tsx": "^4.23.15"
   },

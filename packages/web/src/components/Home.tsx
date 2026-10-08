@@ -2,6 +2,8 @@ import { type Card, NAME_MAX_LENGTH } from '@durak/engine';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { codeFromUrl, useStore } from '../store';
+import { AccountChip } from './Account';
+import { AuthPanel } from './AuthPanel';
 import { PlayingCard } from './PlayingCard';
 
 const FAN: Card[] = [
@@ -19,12 +21,14 @@ const formatCode = (raw: string) => {
 };
 
 export function Home({ onRules }: { onRules: () => void }) {
-  const { name, setName, create, join } = useStore();
+  const { name, setName, create, join, accountsEnabled, auth, openLeaderboard } = useStore();
+  // Connecté avec un profil : le pseudo du compte est utilisé, pas de champ à remplir.
+  const account = auth.profile;
   // Arrivée par un lien d'invitation : le code du salon est déjà rempli.
   const [code, setCode] = useState(() => formatCode(codeFromUrl()));
   const [invited] = useState(() => codeFromUrl().length === 6);
   const [busy, setBusy] = useState(false);
-  const nameOk = name.trim().length > 0;
+  const nameOk = !!account || name.trim().length > 0;
   const codeOk = code.replace('-', '').length === 6;
 
   const run = async (fn: () => Promise<boolean>) => {
@@ -55,7 +59,21 @@ export function Home({ onRules }: { onRules: () => void }) {
           </div>
           <h1>Durak</h1>
           <p className="sub">Ne sois pas le dernier avec des cartes en main.</p>
+          {accountsEnabled && (
+            <button type="button" className="linkish" style={{ marginTop: 10 }} onClick={() => openLeaderboard(true)}>
+              Voir le classement
+            </button>
+          )}
         </div>
+
+        <div className="home-side">
+          {accountsEnabled && account && <AccountChip />}
+          {accountsEnabled && !auth.signedIn && (
+            <div className="panel">
+              <span className="panel-title">Ton compte</span>
+              <AuthPanel compact />
+            </div>
+          )}
 
         <motion.form
           className="panel"
@@ -64,19 +82,25 @@ export function Home({ onRules }: { onRules: () => void }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <label className="field" htmlFor="pseudo">
-            Ton pseudo
-            <input
-              id="pseudo"
-              className="input"
-              value={name}
-              maxLength={NAME_MAX_LENGTH}
-              autoComplete="nickname"
-              autoFocus={invited && !name}
-              placeholder="Ex. Tanguy"
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
+{!account && (
+            <>
+              {accountsEnabled && <span className="panel-title">Jouer en invité (sans stats)</span>}
+                        <label className="field" htmlFor="pseudo">
+              Ton pseudo
+              <input
+                id="pseudo"
+                className="input"
+                value={name}
+                maxLength={NAME_MAX_LENGTH}
+                autoComplete="nickname"
+                autoFocus={invited && !name}
+                placeholder="Ex. Tanguy"
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            </>
+          )}
+          {account && <span className="panel-title">Jouer</span>}
           {invited && <div className="invite">Tu es invité dans le salon <b>{code}</b> : choisis un pseudo et rejoins.</div>}
           <button
             type="button"
@@ -111,6 +135,7 @@ export function Home({ onRules }: { onRules: () => void }) {
             </button>
           </div>
         </motion.form>
+        </div>
       </div>
     </main>
   );

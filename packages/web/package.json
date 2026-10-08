@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@durak/engine": "*",
+    "@supabase/supabase-js": "^2.117.3",
     "motion": "^14.0.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

@@ -1,13 +1,15 @@
 import { MAX_PLAYERS, MIN_PLAYERS, type RoomView, TURN_SECONDS_OPTIONS } from '@durak/engine';
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import { AVATAR_COLORS, COLOR_NAMES, avatarColors, initial } from '../format';
+import { AVATAR_COLORS, COLOR_NAMES } from '../format';
 import { inviteLink, useStore } from '../store';
+import { AccountChip, Avatar } from './Account';
 import { Chat } from './Chat';
 import { HostBadge } from './HostBadge';
 
 export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }) {
-  const { start, leave, setTurnSeconds, reorder, toast, kick, setColor } = useStore();
+  const { start, leave, setTurnSeconds, reorder, toast, kick, setColor, accountsEnabled, openProfile, auth, openAuth } =
+    useStore();
   const [confirmKick, setConfirmKick] = useState<string | null>(null);
   const myColor = room.players.find((p) => p.id === room.you)?.color ?? 0;
   const takenColors = new Set(room.players.filter((p) => p.id !== room.you).map((p) => p.color));
@@ -57,6 +59,21 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
           </div>
         </div>
 
+        {accountsEnabled &&
+          (auth.profile ? (
+            <AccountChip />
+          ) : (
+            !auth.signedIn && (
+              <div className="hint">
+                Tu joues en invité.{' '}
+                <button type="button" className="linkish" onClick={() => openAuth(true)}>
+                  Connecte-toi
+                </button>{' '}
+                pour enregistrer tes prochaines parties.
+              </div>
+            )
+          ))}
+
         <ol className="seats" aria-label="Places à la table">
           {Array.from({ length: MAX_PLAYERS }, (_, i) => {
             const p = room.players[i];
@@ -66,7 +83,6 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
                   Place libre
                 </li>
               );
-            const [bg, fg] = avatarColors(p.color);
             if (confirmKick === p.id)
               return (
                 <li key={p.id} className="seat kick-confirm">
@@ -90,21 +106,29 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
                   </span>
                 </li>
               );
+            const stats = p.stats ? `${p.stats.korol} Korol · ${p.stats.durak} durak` : null;
             const tags = [
               p.id === room.you ? 'toi' : null,
+              accountsEnabled ? stats : null,
               p.id === room.lastDurakId ? 'durak de la dernière partie' : null,
               !p.connected ? 'déconnecté' : null,
               p.inResults ? 'regarde encore les résultats…' : null,
             ].filter(Boolean);
             return (
               <motion.li layout key={p.id} className={`seat ${p.inResults ? 'away-seat' : ''}`}>
-                <span className={`av ${p.connected ? '' : 'away'}`} style={{ background: bg, color: fg }}>
-                  {initial(p.name)}
-                </span>
+                <Avatar name={p.name} color={p.color} url={p.avatarUrl} className={p.connected ? '' : 'away'} />
                 <div className="who">
                   <b>
-                    {p.name}
+                    {p.profileId ? (
+                      <button type="button" className="name-link" onClick={() => openProfile(p.profileId)}>
+                        {p.name}
+                      </button>
+                    ) : (
+                      p.name
+                    )}
                     {p.id === room.hostId && <HostBadge />}
+                    {accountsEnabled &&
+                      (p.profileId ? <span className="acct-badge">Compte</span> : <span className="guest-badge">Invité</span>)}
                   </b>
                   <small>{tags.join(' · ') || 'Prêt'}</small>
                 </div>

@@ -1,4 +1,5 @@
-import type { Ack, Action, ClientToServer, RoomView, ServerToClient, Session } from '@durak/engine';
+import type { Ack, Action, AuthState, ClientToServer, RoomView, ServerToClient, Session } from '@durak/engine';
+import { initSupabase, returnUrl, supabase } from './auth';
 import { type Socket, io } from 'socket.io-client';
 import { create } from 'zustand';
 
@@ -57,6 +58,45 @@ interface State {
   /** Id du dernier message de chat lu, pour le compteur de non-lus. */
   chatSeen: number;
   markChatSeen: () => void;
+
+  // --- Comptes ---------------------------------------------------------------
+  /** Le serveur a un projet Supabase configuré. */
+  accountsEnabled: boolean;
+  auth: AuthState;
+  signInWith: (provider: 'discord' | 'google') => Promise<void>;
+  signInEmail: (email: string, password: string) => Promise<boolean>;
+  /** Renvoie 'confirm' si un e-mail de confirmation a été envoyé. */
+  signUpEmail: (email: string, password: string) => Promise<'ok' | 'confirm' | null>;
+  sendPasswordReset: (email: string) => Promise<boolean>;
+  updatePassword: (password: string) => Promise<boolean>;
+  signOut: () => Promise<void>;
+  saveProfile: (username: string, color: number) => Promise<boolean>;
+
+  // --- Fenêtres ----------------------------------------------------------------
+  /** Profil affiché (id de compte), ou null. */
+  profileView: string | null;
+  leaderboardOpen: boolean;
+  authOpen: boolean;
+  /** Le joueur est revenu par le lien « mot de passe oublié » : il doit en choisir un nouveau. */
+  recoveryOpen: boolean;
+  openProfile: (id: string | null) => void;
+  openLeaderboard: (open: boolean) => void;
+  openAuth: (open: boolean) => void;
+  closeRecovery: () => void;
+}
+
+const SIGNED_OUT: AuthState = { signedIn: false, profile: null, suggestedName: null };
+
+/** Messages d'erreur Supabase traduits pour les cas courants. */
+function authError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login')) return 'E-mail ou mot de passe incorrect.';
+  if (m.includes('email not confirmed')) return 'Confirme d’abord ton adresse : clique sur le lien reçu par e-mail.';
+  if (m.includes('already registered')) return 'Un compte existe déjà avec cet e-mail : connecte-toi.';
+  if (m.includes('password should be')) return 'Mot de passe trop court : 8 caractères minimum.';
+  if (m.includes('rate limit')) return 'Trop de tentatives : réessaie dans quelques minutes.';
+  if (m.includes('valid email') || m.includes('invalid email')) return 'Cette adresse e-mail n’est pas valide.';
+  return message;
 }
 
 /** Lien d'invitation : la page d'accueil pré-remplit le code du salon. */
@@ -70,7 +110,14 @@ export const codeFromUrl = () => {
   }
 };
 
-const socket: Socket<ServerToClient, ClientToServer> = io({ autoConnect: true, transports: ['websocket', 'polling'] });
+/** Jeton Supabase courant, envoyé au serveur de jeu à chaque (re)connexion. */
+let accessToken: string | null = null;
+
+const socket: Socket<ServerToClient, ClientToServer> = io({
+  autoConnect: false,
+  transports: ['websocket', 'polling'],
+  auth: (cb) => cb({ token: accessToken }),
+});
 
 let toastId = 0;
 
@@ -97,8 +144,33 @@ export const useStore = create<State>((set, get) => {
     set({ session: s });
   };
 
+  /** Transmet le jeton au serveur de jeu et récupère l'état de connexion (profil…). */
+  const syncAuth = () => {
+    if (!socket.connected) return;
+    socket.emit('auth:set', { token: accessToken }, (r) => {
+      if (r.ok) set({ auth: { signedIn: r.signedIn, profile: r.profile, suggestedName: r.suggestedName } });
+    });
+  };
+
+  // Démarrage : configuration publique, session Supabase éventuelle, puis connexion au jeu.
+  initSupabase().then(async (client) => {
+    if (client) {
+      set({ accountsEnabled: true });
+      const { data } = await client.auth.getSession();
+      accessToken = data.session?.access_token ?? null;
+      client.auth.onAuthStateChange((event, session) => {
+        accessToken = session?.access_token ?? null;
+        if (event === 'PASSWORD_RECOVERY') set({ recoveryOpen: true });
+        if (event === 'SIGNED_OUT') set({ auth: SIGNED_OUT });
+        if (event !== 'INITIAL_SESSION') syncAuth();
+      });
+    }
+    socket.connect();
+  });
+
   socket.on('connect', () => {
     set({ connection: 'online' });
+    syncAuth();
     const s = get().session;
     if (s) {
       socket.emit('room:resume', { code: s.code, token: s.token }, (r) => {
@@ -158,6 +230,71 @@ export const useStore = create<State>((set, get) => {
     reorder: async (order) => !!(await request((ack) => socket.emit('room:reorder', { order }, ack))),
     act: async (a) => !!(await request((ack) => socket.emit('game:action', a, ack))),
     sendChat: async (text) => !!(await request((ack) => socket.emit('chat:send', { text }, ack))),
+
+    accountsEnabled: false,
+    auth: SIGNED_OUT,
+    signInWith: async (provider) => {
+      const client = supabase();
+      if (!client) return;
+      const { error } = await client.auth.signInWithOAuth({ provider, options: { redirectTo: returnUrl() } });
+      if (error) get().toast(authError(error.message));
+    },
+    signInEmail: async (email, password) => {
+      const client = supabase();
+      if (!client) return false;
+      const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) get().toast(authError(error.message));
+      return !error;
+    },
+    signUpEmail: async (email, password) => {
+      const client = supabase();
+      if (!client) return null;
+      const { data, error } = await client.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { emailRedirectTo: returnUrl() },
+      });
+      if (error) {
+        get().toast(authError(error.message));
+        return null;
+      }
+      return data.session ? 'ok' : 'confirm';
+    },
+    sendPasswordReset: async (email) => {
+      const client = supabase();
+      if (!client) return false;
+      const { error } = await client.auth.resetPasswordForEmail(email.trim(), { redirectTo: returnUrl() });
+      if (error) get().toast(authError(error.message));
+      return !error;
+    },
+    updatePassword: async (password) => {
+      const client = supabase();
+      if (!client) return false;
+      const { error } = await client.auth.updateUser({ password });
+      if (error) get().toast(authError(error.message));
+      else get().toast('Mot de passe mis à jour.', 'info');
+      return !error;
+    },
+    signOut: async () => {
+      await supabase()?.auth.signOut();
+      accessToken = null;
+      set({ auth: SIGNED_OUT });
+      syncAuth();
+    },
+    saveProfile: async (username, color) => {
+      const r = await request<AuthState>((ack) => socket.emit('profile:save', { username, color }, ack));
+      if (r) set({ auth: { signedIn: r.signedIn, profile: r.profile, suggestedName: r.suggestedName } });
+      return !!r;
+    },
+
+    profileView: null,
+    leaderboardOpen: false,
+    authOpen: false,
+    recoveryOpen: false,
+    openProfile: (id) => set({ profileView: id, leaderboardOpen: false }),
+    openLeaderboard: (open) => set({ leaderboardOpen: open, profileView: null }),
+    openAuth: (open) => set({ authOpen: open }),
+    closeRecovery: () => set({ recoveryOpen: false }),
     kick: async (playerId) => !!(await request((ack) => socket.emit('room:kick', { playerId }, ack))),
     setColor: async (color) => !!(await request((ack) => socket.emit('room:color', { color }, ack))),
     chatSeen: 0,
