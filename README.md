@@ -35,6 +35,12 @@ npx tsx packages/server/scripts/fake-players.ts ABC-123 2
 npm test
 ```
 
+Avec un projet Supabase configuré dans `.env`, un test de bout en bout crée deux comptes de test, joue une partie entre eux, vérifie ce qui est enregistré puis supprime tout (serveur de jeu lancé) :
+
+```bash
+npx tsx --env-file=.env packages/server/scripts/e2e-accounts.ts
+```
+
 Le moteur est testé règle par règle, plus des centaines de parties aléatoires complètes de 2 à 6 joueurs qui vérifient que les 36 cartes sont toujours comptées et que chaque partie se termine.
 
 ## Production
