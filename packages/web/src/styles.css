@@ -443,6 +443,10 @@ button {
   padding: 4px 8px;
   font: inherit;
 }
+.lobby select option {
+  background: #10292a;
+  color: var(--ivory);
+}
 .hint {
   font-size: 13px;
   color: var(--ivory-dim);

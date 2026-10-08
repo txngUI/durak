@@ -121,6 +121,23 @@ describe('relance', () => {
     expect(s.discardCount).toBe(4);
   });
 
+  it('si l’attaquant ne peut pas ouvrir, le joueur suivant attaque le défenseur', () => {
+    // P1 n'a que le 8♦, déjà posé en attaque sur les 2 plis précédents : il est bloqué.
+    const s0 = setup({ hands: ['AC AD', '8D', '7S KH', '9C'], trump: 'H', attacker: 1, defender: 0, round: 3 });
+    s0.attackStreaks['8D'] = { round: 2, count: 2 };
+    // Le pli démarre quand le défenseur désigne son attaquant.
+    const r = applyAction({ ...s0, phase: 'chooseAttacker', actor: 0, attacker: -1 }, 0, { type: 'chooseAttacker', target: 1 });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.state.attacker).toBe(1);
+    expect(r.state.actor).toBe(2);
+    expect(r.state.log).toContainEqual({ t: 'noAttack', p: 1 });
+    // P2 ouvre contre le défenseur, P0.
+    const after = play(r.state, [2, atk('7S')]);
+    expect(after.phase).toBe('defend');
+    expect(after.actor).toBe(0);
+  });
+
   it('le défenseur ne peut pas relancer et on ne passe pas sans attaque', () => {
     const s = setup({ hands: ['7C', '6C'], trump: 'D', attacker: 1, defender: 0 });
     expect(applyAction(s, 0, atk('7C')).ok).toBe(false);

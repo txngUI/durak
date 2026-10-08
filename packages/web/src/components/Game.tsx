@@ -135,7 +135,7 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
             Atout {SUIT_SYMBOL[v.trumpSuit]}
           </span>
           <span className="pill">Pli {v.round}</span>
-          <span className="pill room-code">Salon {room.code}</span>
+          <span className="pill room-code">{room.code}</span>
           <button type="button" className="icon-btn" onClick={onRules}>
             Règles
           </button>
