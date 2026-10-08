@@ -1,4 +1,4 @@
-import { type Action, type Profile, viewFor } from '@durak/engine';
+import type { GameState, Profile } from '@durak/engine';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryAccountStore } from '../src/accounts';
 import { INTRO_DELAY_MS, type Room, Rooms } from '../src/rooms';
@@ -12,23 +12,30 @@ function setup() {
   return { store, rooms };
 }
 
-/** Termine la partie : chacun défend s'il peut, sinon ramasse, et ne relance jamais. */
+/**
+ * Amène la partie à un dernier pli déterministe, puis le joue : le joueur 0 attaque avec sa
+ * dernière carte (il devient Korol), le joueur 1 la bat et garde une carte (il est durak).
+ */
 function finish(room: Room, rooms: Rooms) {
-  for (let i = 0; i < 5000 && room.game!.phase !== 'finished'; i++) {
-    const g = room.game!;
-    const actorId = room.gamePlayerIds[g.actor];
-    const v = viewFor(g, g.actor);
-    const action: Action = v.legal.chooseTargets.length
-      ? { type: 'chooseAttacker', target: v.legal.chooseTargets[0] }
-      : v.legal.defend.length
-        ? { type: 'defend', card: v.legal.defend[0] }
-        : v.legal.canTake
-          ? { type: 'take' }
-          : v.legal.canPass
-            ? { type: 'pass' }
-            : { type: 'attack', card: v.legal.attack[0] };
-    rooms.act(room, actorId, action);
-  }
+  const g = room.game!;
+  room.game = {
+    ...g,
+    phase: 'attack',
+    deck: [],
+    trumpSuit: 'H',
+    attacker: 0,
+    defender: 1,
+    actor: 0,
+    step: 1,
+    table: [],
+    passed: [],
+    players: g.players.map((p, i) => ({
+      ...p,
+      hand: i === 0 ? [{ r: 6, s: 'S' }] : [{ r: 14, s: 'S' }, { r: 13, s: 'D' }],
+    })),
+  } as GameState;
+  rooms.act(room, room.gamePlayerIds[0], { type: 'attack', card: { r: 6, s: 'S' } });
+  rooms.act(room, room.gamePlayerIds[1], { type: 'defend', card: { r: 14, s: 'S' } });
 }
 
 afterEach(() => vi.useRealTimers());
@@ -57,7 +64,10 @@ describe('comptes', () => {
     expect(store.games).toHaveLength(1);
     const rec = store.games[0];
     expect(rec.players.map((p) => p.profileId)).toEqual(['u1', null]);
-    expect(rec.players.filter((p) => p.isDurak)).toHaveLength(1);
+    expect(rec.players.map((p) => [p.isKorol, p.isDurak])).toEqual([
+      [true, false],
+      [false, true],
+    ]);
     const view = rooms.viewFor(room, host.id);
     expect(view.myDelta?.before.games).toBe(0);
     expect(view.myDelta?.after.games).toBe(1);
