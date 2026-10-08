@@ -66,6 +66,12 @@ export function shuffle<T>(items: T[], rng: () => number): T[] {
   return out;
 }
 
+/** Tri par couleur : trèfle, carreau, cœur, pique, l'atout regroupé à droite ; du 6 à l'As dans chaque couleur. */
+export function sortHandBySuit(hand: Card[], trump: Suit): Card[] {
+  const order = (s: Suit) => (s === trump ? 9 : SUITS.indexOf(s));
+  return hand.slice().sort((a, b) => order(a.s) - order(b.s) || a.r - b.r);
+}
+
 /** Tri d'affichage d'une main : du 6 à l'As ; à valeur égale, l'atout en dernier. */
 export function sortHand(hand: Card[], trump: Suit): Card[] {
   const order = (s: Suit) => (s === trump ? 9 : SUITS.indexOf(s));

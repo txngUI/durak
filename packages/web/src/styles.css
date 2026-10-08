@@ -1426,3 +1426,31 @@ button {
 .opp .name .host-badge {
   margin-left: 0;
 }
+
+/* ---------- Tri de la main ---------- */
+.hand-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ivory-dim);
+}
+.hand-tools button {
+  border: 0;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--ivory-dim);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.hand-tools button[aria-checked='true'] {
+  background: var(--felt-line);
+  color: var(--ivory);
+}
+@media (max-width: 760px) {
+  .hand-tools {
+    justify-content: center;
+  }
+}

@@ -1,0 +1,503 @@
+<title>Durak V2 · comptes et stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#edf1f0; --surface:#ffffff; --ink:#172022; --muted:#55666a; --line:#d3dcdb;
+  --accent:#1d5a5c; --accent-soft:#d9e8e7; --brass:#b98a2e;
+  /* table de jeu : identique dans les deux thèmes */
+  --felt:#163a3c; --felt-2:#1e4a4c; --felt-line:#2c5d5f; --gold:#d8ae55;
+  --ivory:#f8f4ea; --card-ink:#1b1d1f; --card-red:#b8322a; --glow:#f2cf73;
+  --display:"Yeseva One", Georgia, serif;
+  --body:"Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1617; --surface:#162123; --ink:#e3ebea; --muted:#93a6a8; --line:#28393b;
+    --accent:#7cc3c2; --accent-soft:#1d3335; --brass:#d8ae55;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1617; --surface:#162123; --ink:#e3ebea; --muted:#93a6a8; --line:#28393b;
+  --accent:#7cc3c2; --accent-soft:#1d3335; --brass:#d8ae55;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;padding-inline:16px;padding-block:40px 80px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6vw,54px)}
+h2{font-size:28px}
+h3{font-size:19px;font-family:var(--body);font-weight:600}
+p{margin:0;max-width:68ch}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);font-weight:600}
+header{display:flex;flex-direction:column;gap:14px}
+header .lede{color:var(--muted);font-size:17px}
+.status{display:inline-flex;gap:8px;align-items:center;font-size:13px;font-weight:600;background:var(--accent-soft);color:var(--accent);padding:6px 12px;border-radius:999px;width:fit-content}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+section{display:flex;flex-direction:column;gap:20px}
+.sec-head{display:flex;flex-direction:column;gap:6px}
+.sec-head p{color:var(--muted)}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px}
+nav.toc a{color:var(--accent);text-decoration:none;border:1px solid var(--line);padding:6px 12px;border-radius:6px;font-size:14px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);outline:none}
+
+/* ---------- Stack ---------- */
+.stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stack div{background:var(--surface);padding:18px;display:flex;flex-direction:column;gap:6px}
+.stack .k{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stack .v{font-weight:600;font-size:16px}
+.stack p{font-size:14px;color:var(--muted)}
+.arch{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;overflow-x:auto}
+.arch pre{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--ink)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.notes h3{margin-bottom:8px}
+
+/* ---------- Règles ---------- */
+.rules{border-top:1px solid var(--line)}
+.rule{display:grid;grid-template-columns:200px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+.rule .t{font-weight:600}
+.rule .d{font-size:14.5px}
+.rule .d em{font-style:normal;color:var(--muted)}
+.tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;margin-right:6px;vertical-align:1px}
+.tag.ok{background:var(--accent-soft);color:var(--accent)}
+.tag.q{background:#f6e3b8;color:#7a5410}
+@media (max-width:640px){.rule{grid-template-columns:1fr;gap:4px}}
+
+/* ---------- Maquettes ---------- */
+.shot{display:flex;flex-direction:column;gap:10px}
+.shot figcaption{font-size:14px;color:var(--muted);max-width:75ch}
+.shot figcaption b{color:var(--ink)}
+figure{margin:0}
+.scroll{overflow-x:auto;border-radius:14px}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;align-items:start}
+
+.screen{background:radial-gradient(ellipse at 50% 40%,var(--felt-2),var(--felt) 70%);color:var(--ivory);border-radius:14px;position:relative;overflow:hidden;font-family:var(--body)}
+.screen::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.015) 0 2px,transparent 2px 6px)}
+.screen .logo{font-family:var(--display);color:var(--gold);letter-spacing:.02em}
+
+/* Cartes */
+.card{--w:62px;width:var(--w);height:calc(var(--w)*1.42);background:var(--ivory);color:var(--card-ink);border-radius:calc(var(--w)*.1);position:relative;box-shadow:0 2px 0 rgba(0,0,0,.15),0 6px 14px rgba(0,0,0,.28);flex:none;font-weight:700}
+.card.red{color:var(--card-red)}
+.card .r{position:absolute;top:5%;left:9%;font-size:calc(var(--w)*.28);line-height:1}
+.card .s1{position:absolute;top:27%;left:9%;font-size:calc(var(--w)*.2);line-height:1}
+.card .c{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--w)*.5);padding-top:12%}
+.card.trump::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 2px var(--gold)}
+.card.back{background:#7a1f1c;background-image:repeating-linear-gradient(45deg,rgba(216,174,85,.35) 0 2px,transparent 2px 7px),repeating-linear-gradient(-45deg,rgba(216,174,85,.35) 0 2px,transparent 2px 7px);box-shadow:inset 0 0 0 3px #f8f4ea,inset 0 0 0 5px #7a1f1c,0 4px 10px rgba(0,0,0,.3)}
+.card.dim{filter:brightness(.62) saturate(.6)}
+.card.play{transform:translateY(-14px);box-shadow:0 0 0 2px var(--glow),0 10px 22px rgba(0,0,0,.4)}
+.card.sel{transform:translateY(-26px);box-shadow:0 0 0 3px var(--glow),0 0 22px rgba(242,207,115,.6)}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.28);color:var(--ivory)}
+.pill.gold{background:var(--gold);color:#2a1d05}
+.btn{font-family:var(--body);font-weight:600;font-size:14px;border-radius:8px;padding:10px 18px;border:0;cursor:pointer}
+.btn.primary{background:var(--gold);color:#2a1d05}
+.btn.ghost{background:transparent;color:var(--ivory);box-shadow:inset 0 0 0 1.5px rgba(248,244,234,.5)}
+.btn.danger{background:#c9463c;color:#fff}
+
+/* Accueil */
+.home{padding:36px;display:grid;grid-template-columns:1.1fr 1fr;gap:32px;min-height:400px;align-items:center}
+.home .fan{position:relative;height:220px}
+.home .fan .card{position:absolute;left:50%;bottom:10px;--w:96px;transform-origin:50% 120%}
+.home h4{font-family:var(--display);font-weight:400;font-size:44px;color:var(--gold);margin:0}
+.home .sub{color:rgba(248,244,234,.7);font-size:14px;margin-top:4px}
+.panel{background:rgba(8,26,27,.55);border:1px solid var(--felt-line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:rgba(248,244,234,.7)}
+.input{background:rgba(248,244,234,.08);border:1px solid var(--felt-line);border-radius:8px;padding:10px 12px;color:var(--ivory);font-size:15px;font-family:var(--body)}
+.input.mono{font-family:var(--mono);letter-spacing:.2em}
+.or{display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(248,244,234,.5)}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--felt-line)}
+
+/* Salon */
+.lobby{padding:24px;display:flex;flex-direction:column;gap:18px}
+.lobby .top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.code{font-family:var(--mono);font-size:22px;letter-spacing:.25em;color:var(--gold)}
+.seats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.seat{border:1px solid var(--felt-line);border-radius:10px;padding:12px;display:flex;gap:10px;align-items:center;background:rgba(8,26,27,.35);font-size:14px}
+.seat.empty{border-style:dashed;color:rgba(248,244,234,.5);justify-content:center}
+.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.seat small{display:block;font-size:11px;color:rgba(248,244,234,.6)}
+
+/* Table desktop */
+.table{width:960px;height:600px;position:relative}
+.opp{position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px}
+.opp .name{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.opp .backs{display:flex}
+.opp .backs .card{--w:30px;margin-left:-18px}
+.opp .backs .card:first-child{margin-left:0}
+.role{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:4px}
+.role.att{background:#c9463c;color:#fff}
+.role.def{background:var(--gold);color:#2a1d05}
+.role.wait{background:rgba(255,255,255,.12);color:rgba(248,244,234,.7)}
+.opp.active .av{box-shadow:0 0 0 3px var(--glow)}
+.deck{position:absolute;left:40px;top:220px;width:140px;height:130px}
+.deck .trumpc{position:absolute;left:24px;top:22px;transform:rotate(90deg)}
+.deck .pile{position:absolute;left:0;top:10px}
+.deck .pile .card{position:absolute}
+.deck .cnt{position:absolute;left:4px;top:118px;font-size:12px;color:rgba(248,244,234,.75);white-space:nowrap}
+.discard{position:absolute;right:44px;top:228px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:rgba(248,244,234,.75)}
+.discard .stackd{position:relative;width:62px;height:88px}
+.discard .stackd .card{position:absolute}
+.center{position:absolute;left:220px;right:200px;top:190px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.pairs{display:flex;gap:22px}
+.pair{position:relative;width:78px;height:110px}
+.pair .card:nth-child(2){position:absolute;left:16px;top:20px;transform:rotate(8deg)}
+.pair.slot{border:1.5px dashed rgba(248,244,234,.18);border-radius:8px;width:62px;height:88px}
+.target{box-shadow:0 0 0 3px #c9463c,0 6px 14px rgba(0,0,0,.3)!important}
+.counter{display:flex;gap:10px;align-items:center}
+.dots{display:flex;gap:4px}
+.dots i{width:9px;height:9px;border-radius:50%;background:rgba(248,244,234,.2)}
+.dots i.on{background:var(--gold)}
+.me{position:absolute;left:0;right:0;bottom:0;padding:0 24px 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+.hand{display:flex;padding-top:30px}
+.hand .card{--w:76px;margin-left:-14px}
+.hand .card:first-child{margin-left:0}
+.actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.prompt{font-size:14px;background:rgba(8,26,27,.6);border:1px solid var(--felt-line);padding:8px 12px;border-radius:8px;max-width:260px}
+.prompt b{color:var(--glow)}
+.timer{height:4px;width:200px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden}
+.timer i{display:block;height:100%;width:62%;background:var(--glow)}
+.topbar{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:12px 18px;font-size:13px}
+.log{position:absolute;right:16px;top:330px;width:170px;font-size:11.5px;color:rgba(248,244,234,.7);display:flex;flex-direction:column;gap:3px}
+.log b{color:var(--ivory);font-weight:600}
+
+/* Mobile */
+.phone{width:340px;height:700px;border-radius:34px;border:8px solid #0b0f10;position:relative;margin:0 auto;box-shadow:0 20px 40px rgba(0,0,0,.25)}
+.phone .screen{position:absolute;inset:0;border-radius:26px}
+.m-opps{display:flex;justify-content:space-around;padding:44px 10px 0}
+.m-opp{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:600}
+.m-opp .av{width:38px;height:38px}
+.m-opp .n{font-size:10px;color:rgba(248,244,234,.65);font-weight:500}
+.m-mid{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 0;font-size:11px;color:rgba(248,244,234,.75)}
+.m-mid .tr{display:flex;align-items:center;gap:6px}
+.m-table{display:grid;grid-template-columns:repeat(3,auto);justify-content:center;gap:12px 14px;padding:18px 10px 0}
+.m-table .pair{width:62px;height:90px}
+.m-table .card{--w:50px}
+.m-table .pair .card:nth-child(2){left:12px;top:16px}
+.m-table .pair.slot{width:50px;height:71px}
+.m-bottom{position:absolute;left:0;right:0;bottom:0;padding:0 10px 16px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.m-hand{display:flex;justify-content:center;padding-top:24px}
+.m-hand .card{--w:52px;margin-left:-12px}
+.m-hand .card:first-child{margin-left:0}
+.m-actions{display:flex;gap:8px;width:100%}
+.m-actions .btn{flex:1;padding:12px 8px}
+
+/* Modale & fin */
+.overlay{position:absolute;inset:0;background:rgba(5,15,16,.55);display:grid;place-items:center;padding:16px}
+.modal{background:#10292a;border:1px solid var(--felt-line);border-radius:14px;padding:22px;max-width:360px;width:100%;display:flex;flex-direction:column;gap:14px;text-align:center;position:relative;z-index:1}
+.modal h5{font-family:var(--display);font-weight:400;font-size:24px;margin:0;color:var(--gold)}
+.modal p{font-size:13.5px;color:rgba(248,244,234,.8);margin:0 auto}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice{border:1.5px solid var(--felt-line);border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;font-weight:600;background:rgba(255,255,255,.03)}
+.choice:hover{border-color:var(--gold)}
+.rank{display:flex;flex-direction:column;gap:6px;text-align:left}
+.rank div{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:13.5px}
+.rank .pos{font-family:var(--display);color:var(--gold);width:20px}
+.rank .durak{background:rgba(201,70,60,.25);border:1px solid #c9463c}
+.cap{font-size:30px;line-height:1}
+
+@media (max-width:720px){
+  .home{grid-template-columns:1fr;padding:22px}
+  .home .fan{height:170px}
+  .home .fan .card{--w:74px}
+  .seats{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:no-preference){
+  .card.play,.card.sel{transition:transform .2s}
+}
+</style>
+
+<style>
+/* ---------- V2 ---------- */
+.data{border:1px solid var(--line);border-radius:10px;overflow-x:auto;background:var(--surface)}
+.data table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+.data th,.data td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.data th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.data tr:last-child td{border-bottom:0}
+.data code{font-family:var(--mono);font-size:12.5px}
+.todo{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none;counter-reset:t}
+.todo li{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;font-size:14.5px}
+.todo li::before{counter-increment:t;content:counter(t);width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px}
+.todo b{font-weight:600}
+
+/* écrans */
+.auth{padding:30px;display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center}
+.auth .brand h4{font-family:var(--display);font-weight:400;font-size:48px;color:var(--gold);margin:0}
+.auth .brand p{color:rgba(248,244,234,.7);font-size:14px;margin:6px 0 0}
+.oauth{display:flex;align-items:center;justify-content:center;gap:10px;border-radius:8px;padding:11px;font-weight:600;font-size:14px;border:0}
+.oauth.discord{background:#5865f2;color:#fff}
+.oauth.google{background:#f8f4ea;color:#1b1d1f}
+.oauth i{font-style:normal;font-weight:800;font-size:15px}
+.tabs2{display:flex;gap:4px;background:rgba(0,0,0,.25);border-radius:999px;padding:3px}
+.tabs2 span{flex:1;text-align:center;padding:5px;border-radius:999px;font-size:12.5px;font-weight:600;color:rgba(248,244,234,.6)}
+.tabs2 span.on{background:var(--felt-line);color:var(--ivory)}
+.guest{font-size:12.5px;color:rgba(248,244,234,.65);text-align:center}
+.guest b{color:var(--ivory)}
+.chip{display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.28);border-radius:999px;padding:4px 12px 4px 4px;font-size:13px;font-weight:600}
+.chip .av{width:28px;height:28px;font-size:12px}
+.verified{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9fd6c8;border:1px solid #4f8f80;border-radius:4px;padding:1px 5px}
+.guesttag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(248,244,234,.55);border:1px dashed rgba(248,244,234,.35);border-radius:4px;padding:1px 5px}
+.hostb{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);border-radius:4px;padding:1px 5px}
+
+.profile{padding:26px;display:flex;flex-direction:column;gap:18px}
+.phead{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.phead .av{width:56px;height:56px;font-size:22px}
+.phead h4{font-family:var(--display);font-weight:400;font-size:30px;margin:0}
+.phead small{color:rgba(248,244,234,.6);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.kpi{background:rgba(8,26,27,.45);border:1px solid var(--felt-line);border-radius:10px;padding:12px}
+.kpi .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(248,244,234,.6);font-weight:600}
+.kpi .v{font-family:var(--display);font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .v.gold{color:var(--gold)}.kpi .v.red{color:#f08a7e}
+.kpi .s{font-size:12px;color:rgba(248,244,234,.6)}
+.hist{display:flex;flex-direction:column;gap:6px}
+.hist div{display:grid;grid-template-columns:90px 1fr auto;gap:12px;align-items:center;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.04);font-size:13.5px}
+.hist time{color:rgba(248,244,234,.55);font-size:12px;font-variant-numeric:tabular-nums}
+.res{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:4px}
+.res.k{background:var(--gold);color:#2a1d05}.res.d{background:#c9463c;color:#fff}.res.n{background:rgba(255,255,255,.12);color:rgba(248,244,234,.8)}
+.streak{display:flex;gap:4px}
+.streak i{width:14px;height:14px;border-radius:3px;background:rgba(255,255,255,.12)}
+.streak i.k{background:var(--gold)}.streak i.d{background:#c9463c}
+
+.board{padding:22px;display:flex;flex-direction:column;gap:12px}
+.board .row{display:grid;grid-template-columns:34px 1fr 80px 80px 80px;gap:10px;align-items:center;padding:9px 12px;border-radius:8px;background:rgba(255,255,255,.035);font-size:13.5px;font-variant-numeric:tabular-nums}
+.board .row.head{background:transparent;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:rgba(248,244,234,.55);font-weight:600}
+.board .row.me{outline:1px solid var(--gold)}
+.board .pos{font-family:var(--display);color:var(--gold);font-size:18px}
+.board .who{display:flex;align-items:center;gap:8px;min-width:0}
+.board .who .av{width:26px;height:26px;font-size:11px}
+.board .num{text-align:right}
+
+.endv2 .delta{display:flex;flex-direction:column;gap:6px;text-align:left;background:rgba(0,0,0,.2);border-radius:10px;padding:12px}
+.endv2 .delta div{display:flex;justify-content:space-between;font-size:13.5px}
+.endv2 .delta b{color:var(--gold);font-variant-numeric:tabular-nums}
+.cta-guest{font-size:13px;background:rgba(216,174,85,.12);border:1px solid rgba(216,174,85,.5);border-radius:8px;padding:10px;text-align:left}
+
+@media (max-width:720px){
+  .auth{grid-template-columns:1fr;padding:20px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .board .row{grid-template-columns:28px 1fr 60px 60px;font-size:12.5px}
+  .board .row .hide-sm{display:none}
+  .hist div{grid-template-columns:70px 1fr auto}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">Proposition V2 · étape 1 · à valider avant développement</span>
+  <h1>Durak V2 : comptes et stats</h1>
+  <p class="lede">Première étape de la V2 : se connecter avec Discord, Google ou un e-mail et un mot de passe, garder ses statistiques et apparaître au classement. On peut toujours jouer en invité. Les bots puis le matchmaking public viendront ensuite.</p>
+  <span class="status">En attente de validation</span>
+  <nav class="toc" aria-label="Sommaire">
+    <a href="#perimetre">Ce qui est inclus</a>
+    <a href="#archi">Architecture</a>
+    <a href="#donnees">Données</a>
+    <a href="#maquettes">Maquettes</a>
+    <a href="#toi">Ce que tu dois préparer</a>
+  </nav>
+</header>
+
+<section id="perimetre">
+  <div class="sec-head">
+    <span class="eyebrow">Périmètre</span>
+    <h2>Ce que contient cette étape, et ce qui attend</h2>
+  </div>
+  <div class="notes">
+    <div>
+      <h3>Inclus dans l'étape 1</h3>
+      <ul>
+        <li><b>Connexion</b> Discord, Google, ou e-mail + mot de passe (avec « mot de passe oublié »).</li>
+        <li><b>Pseudo unique</b> choisi à la première connexion, et couleur préférée retenue.</li>
+        <li><b>Mode invité</b> inchangé : un pseudo libre, pas de stats.</li>
+        <li><b>Profil</b> : parties jouées, Korol, durak, série récente, historique.</li>
+        <li><b>Classement</b> des joueurs connectés.</li>
+        <li><b>Reprise des parties</b> après une mise à jour du site : plus de partie coupée par un déploiement.</li>
+        <li>Le minuteur démarre <b>après</b> l'annonce de l'atout.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Étapes suivantes</h3>
+      <ul>
+        <li><b>Étape 2 · Bots</b> : compléter une table ou jouer seul, deux niveaux. Les parties avec bots ne comptent pas au classement.</li>
+        <li><b>Étape 3 · Matchmaking public</b> : file d'attente par nombre de joueurs, réservée aux comptes connectés (modération plus simple).</li>
+        <li><b>Retrait définitif</b> : un joueur connecté retiré par l'hôte ne peut plus revenir dans ce salon (possible dès qu'il y a des comptes).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="archi">
+  <div class="sec-head">
+    <span class="eyebrow">Architecture</span>
+    <h2>Supabase garde ce qui doit durer, le serveur arbitre toujours</h2>
+    <p>Le serveur de jeu actuel ne change pas de rôle : il distribue, cache les mains et tient le minuteur. Supabase (offre Cloud gratuite) gère les comptes et la base de données. Le navigateur ne peut jamais écrire un résultat lui-même.</p>
+  </div>
+  <div class="arch">
+<pre>navigateur (React)                  serveur de jeu (Node, VPS)              Supabase Cloud
+ ├─ connexion Discord / Google ───────────────────────────────────────────► Auth
+ │   / e-mail ◄───────────── jeton de session (JWT) ◄──────────────────────┘
+ ├─ socket.io + jeton ───────────► vérifie le jeton, sait qui joue
+ │                                 arbitre la partie (moteur actuel)
+ │                                 fin de partie ── écrit le résultat ────► Postgres
+ │                                 (clé service, jamais côté client)        games, game_players
+ └─ profil, classement ──────────────────────── lecture seule ────────────► vues player_stats
+                                   arrêt du serveur ── sauvegarde ─► disque du VPS ─► rechargé au démarrage</pre>
+  </div>
+  <div class="notes">
+    <div>
+      <h3>Pourquoi pas Supabase Realtime à la place de Socket.IO</h3>
+      <ul>
+        <li>Les mains doivent rester cachées : un canal Realtime diffuse la même chose à tous, il faudrait ré-arbitrer chaque coup dans des fonctions serveur.</li>
+        <li>Le minuteur et le jeu automatique d'un joueur absent demandent un serveur qui tourne en continu.</li>
+        <li>Le moteur actuel (51 tests) reste tel quel : moins de risques.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Reprise après mise à jour</h3>
+      <ul>
+        <li>À l'arrêt, le serveur enregistre tous les salons et parties sur le disque du VPS (un volume Docker), puis les recharge au démarrage.</li>
+        <li>Les joueurs se reconnectent tout seuls : la partie reprend là où elle était, minuteur relancé.</li>
+        <li>Pas besoin d'écrire chaque coup dans Supabase : plus rapide et gratuit.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="donnees">
+  <div class="sec-head">
+    <span class="eyebrow">Données</span>
+    <h2>Trois tables et une vue de statistiques</h2>
+    <p>Lecture publique des profils et des stats ; seule la clé service du serveur de jeu peut écrire les parties (règles RLS de Supabase).</p>
+  </div>
+  <div class="data">
+    <table>
+      <thead><tr><th>Table</th><th>Contenu</th><th>Qui écrit</th></tr></thead>
+      <tbody>
+        <tr><td><code>profiles</code></td><td>pseudo unique, couleur préférée, avatar Discord/Google, date d'inscription</td><td>le joueur (son profil seulement)</td></tr>
+        <tr><td><code>games</code></td><td>date, durée, nombre de joueurs, nombre de plis, atout, avec ou sans bots</td><td>serveur de jeu</td></tr>
+        <tr><td><code>game_players</code></td><td>une ligne par joueur : compte (ou invité), pseudo affiché, place, Korol, durak, cartes restantes</td><td>serveur de jeu</td></tr>
+        <tr><td><code>player_stats</code> (vue)</td><td>parties, Korol, durak, % de Korol, % de durak, série récente</td><td>calculée</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="maquettes">
+  <div class="sec-head">
+    <span class="eyebrow">Maquettes</span>
+    <h2>Les nouveaux écrans, dans le style actuel</h2>
+  </div>
+
+  <figure class="shot">
+    <div class="screen auth">
+      <div class="brand">
+        <h4>Durak</h4>
+        <p>Connecte-toi pour garder tes stats et grimper au classement. Ou joue tout de suite en invité.</p>
+      </div>
+      <div class="panel">
+        <button class="oauth discord" type="button"><i>◆</i> Continuer avec Discord</button>
+        <button class="oauth google" type="button"><i>G</i> Continuer avec Google</button>
+        <div class="or">ou avec un e-mail</div>
+        <div class="tabs2"><span class="on">Se connecter</span><span>Créer un compte</span></div>
+        <label class="field" for="v2-mail">E-mail<input id="v2-mail" class="input" value="tanguy@exemple.fr" readonly></label>
+        <label class="field" for="v2-pass">Mot de passe<input id="v2-pass" class="input" type="password" value="motdepasse" readonly></label>
+        <button class="btn primary" type="button">Se connecter</button>
+        <div style="font-size:12px;color:rgba(248,244,234,.55);text-align:right">Mot de passe oublié ?</div>
+        <div class="or">ou</div>
+        <div class="guest">Jouer en <b>invité</b> avec un simple pseudo (sans stats)</div>
+      </div>
+    </div>
+    <figcaption><b>Accueil déconnecté.</b> Les trois façons de se connecter, et le mode invité toujours là. À la première connexion, on choisit un pseudo unique (vérifié par le même filtre que le chat).</figcaption>
+  </figure>
+
+  <div class="row2">
+    <figure class="shot">
+      <div class="screen lobby">
+        <div class="top">
+          <span class="chip"><span class="av" style="background:#9b6fc9;color:#fff">T</span>Tanguy</span>
+          <span style="display:flex;gap:6px"><span class="pill">Profil</span><span class="pill">Classement</span></span>
+        </div>
+        <div class="seats" style="grid-template-columns:1fr">
+          <div class="seat"><span class="av" style="background:#9b6fc9;color:#fff">T</span><div>Tanguy <span class="hostb">Hôte</span> <span class="verified">Compte</span><small>12 Korol · 4 durak</small></div></div>
+          <div class="seat"><span class="av" style="background:#6fa8a6;color:#082022">L</span><div>Léa <span class="verified">Compte</span><small>3 Korol · 9 durak</small></div></div>
+          <div class="seat"><span class="av" style="background:#e0864a;color:#2a1405">M</span><div>Marc <span class="guesttag">Invité</span><small>pas de stats</small></div></div>
+        </div>
+      </div>
+      <figcaption><b>Salon.</b> Badge « Compte » ou « Invité » à côté de chaque pseudo, avec ses chiffres clés. Un invité joue normalement ; seuls les comptes enregistrent la partie.</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <div class="screen endv2" style="padding:20px">
+        <div class="modal" style="margin:0 auto">
+          <span style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:rgba(248,244,234,.7);font-weight:600">Partie terminée en 21 plis</span>
+          <h5>Tu es le Korol !</h5>
+          <div class="delta">
+            <div><span>Parties</span><b>48 → 49</b></div>
+            <div><span>Korol</span><b>12 → 13</b></div>
+            <div><span>Classement</span><b>7e → 5e</b></div>
+          </div>
+          <div class="cta-guest">Marc, tu as joué en invité : <b>crée un compte</b> pour garder cette victoire la prochaine fois.</div>
+          <div style="display:flex;gap:8px;justify-content:center"><button class="btn ghost" type="button">Quitter</button><button class="btn primary" type="button">Retour au salon</button></div>
+        </div>
+      </div>
+      <figcaption><b>Fin de partie.</b> L'écran actuel, plus l'évolution de tes stats. Les invités voient une invitation à créer un compte.</figcaption>
+    </figure>
+  </div>
+
+  <figure class="shot">
+    <div class="screen profile">
+      <div class="phead">
+        <span class="av" style="background:#9b6fc9;color:#fff">T</span>
+        <div><h4>Tanguy</h4><small>Inscrit en octobre 2026 · connecté avec Discord</small></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">Parties</div><div class="v">49</div><div class="s">dont 31 à 3 joueurs ou plus</div></div>
+        <div class="kpi"><div class="k">Korol</div><div class="v gold">13</div><div class="s">27 % des parties</div></div>
+        <div class="kpi"><div class="k">Durak</div><div class="v red">4</div><div class="s">8 % des parties</div></div>
+        <div class="kpi"><div class="k">10 dernières</div><div class="streak" style="margin-top:10px"><i class="k"></i><i></i><i class="d"></i><i class="k"></i><i></i><i></i><i class="k"></i><i></i><i></i><i class="k"></i></div><div class="s" style="margin-top:6px">or = Korol · rouge = durak</div></div>
+      </div>
+      <div class="hist">
+        <div><time>ce soir 21:40</time><span>4 joueurs · avec Léa, Marc, Ivan</span><span class="res k">Korol</span></div>
+        <div><time>ce soir 21:12</time><span>4 joueurs · avec Léa, Marc, Ivan</span><span class="res n">3e</span></div>
+        <div><time>hier 22:05</time><span>2 joueurs · avec Léa</span><span class="res d">Durak</span></div>
+      </div>
+    </div>
+    <figcaption><b>Profil.</b> Les quatre chiffres qui comptent, la série des 10 dernières parties, et l'historique. Le profil de chaque joueur est consultable en cliquant sur son pseudo.</figcaption>
+  </figure>
+
+  <figure class="shot">
+    <div class="screen board">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <span class="logo" style="font-size:24px">Classement</span>
+        <span style="display:flex;gap:6px"><span class="pill gold">% de Korol</span><span class="pill">Moins de durak</span><span class="pill">Ce mois-ci</span></span>
+      </div>
+      <div class="row head"><span>#</span><span>Joueur</span><span class="num">Parties</span><span class="num">Korol</span><span class="num hide-sm">Durak</span></div>
+      <div class="row"><span class="pos">1</span><span class="who"><span class="av" style="background:#d8ae55;color:#2a1d05">S</span>Sacha</span><span class="num">62</span><span class="num">34 %</span><span class="num hide-sm">6 %</span></div>
+      <div class="row"><span class="pos">2</span><span class="who"><span class="av" style="background:#5f9a4c;color:#fff">O</span>Olga</span><span class="num">40</span><span class="num">30 %</span><span class="num hide-sm">10 %</span></div>
+      <div class="row me"><span class="pos">5</span><span class="who"><span class="av" style="background:#9b6fc9;color:#fff">T</span>Tanguy (toi)</span><span class="num">49</span><span class="num">27 %</span><span class="num hide-sm">8 %</span></div>
+      <div class="hint" style="color:rgba(248,244,234,.6)">Classement à partir de 10 parties jouées, pour éviter qu'une seule victoire place tout en haut.</div>
+    </div>
+    <figcaption><b>Classement.</b> Trié par pourcentage de Korol par défaut, avec un tri « moins de durak » et une vue du mois. Exemples de chiffres, pas de vraies données.</figcaption>
+  </figure>
+</section>
+
+<section id="toi">
+  <div class="sec-head">
+    <span class="eyebrow">De ton côté</span>
+    <h2>Ce que tu devras préparer (je te guiderai pas à pas)</h2>
+    <p>Aucune clé secrète ne doit passer dans le chat : elles iront directement dans les secrets GitHub et sur le VPS.</p>
+  </div>
+  <ol class="todo">
+    <li><span><b>Créer le projet Supabase</b> sur supabase.com (région Europe), puis me donner l'URL du projet et la clé publique <code>anon</code>.</span></li>
+    <li><span><b>Créer une application Discord</b> (portail développeurs Discord) et coller son identifiant et son secret dans Supabase → Authentication → Providers.</span></li>
+    <li><span><b>Créer un identifiant OAuth Google</b> (Google Cloud Console), même principe.</span></li>
+    <li><span><b>Ajouter la clé service</b> Supabase dans les secrets GitHub : le déploiement la transmettra au serveur de jeu sur le VPS.</span></li>
+  </ol>
+</section>
+
+</div>

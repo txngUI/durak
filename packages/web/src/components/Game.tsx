@@ -8,6 +8,7 @@ import {
   SUIT_SYMBOL,
   cardLabel,
   isRed,
+  sortHandBySuit,
 } from '@durak/engine';
 import { AnimatePresence, type PanInfo, type TargetAndTransition, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -21,6 +22,8 @@ import { Modal } from './Modal';
 import { PlayingCard } from './PlayingCard';
 
 type Exit = 'take' | 'discard';
+
+const SORT_KEY = 'durak.sort';
 
 /** Durée d'affichage des cartes d'un pli terminé avant qu'elles partent. */
 const LINGER_MS = 2400;
@@ -270,6 +273,23 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
     '--deck-cw': `${Math.round(clamp(40, vh * 0.11, 66))}px`,
   } as React.CSSProperties;
   const avail = mobile ? vw - 24 : Math.min(vw - 420, 900);
+  // Tri de la main au choix du joueur, retenu sur cet appareil.
+  const [sortMode, setSortMode] = useState<'rank' | 'suit'>(() => {
+    try {
+      return localStorage.getItem(SORT_KEY) === 'suit' ? 'suit' : 'rank';
+    } catch {
+      return 'rank';
+    }
+  });
+  const changeSort = (m: 'rank' | 'suit') => {
+    setSortMode(m);
+    try {
+      localStorage.setItem(SORT_KEY, m);
+    } catch {
+      /* stockage indisponible : le choix vaut pour cette page seulement */
+    }
+  };
+  const shownHand = sortMode === 'suit' ? sortHandBySuit(v.hand, v.trumpSuit) : v.hand;
   const count = v.hand.length;
   /** Hors de ton tour, les cartes descendent d'un cinquième de leur hauteur. */
   const restDrop = Math.round(cw * 0.3);
@@ -491,9 +511,18 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
             {room.you === room.hostId && <HostBadge />}
             {roleOf(v.you) && <span className={`role ${roleOf(v.you)!.cls}`}>{roleOf(v.you)!.text}</span>}
           </div>
+          <div className="hand-tools" role="radiogroup" aria-label="Trier ma main">
+            <span>Trier :</span>
+            <button type="button" role="radio" aria-checked={sortMode === 'rank'} onClick={() => changeSort('rank')}>
+              par valeur
+            </button>
+            <button type="button" role="radio" aria-checked={sortMode === 'suit'} onClick={() => changeSort('suit')}>
+              par couleur
+            </button>
+          </div>
           <div ref={handRef} className="hand" style={{ '--overlap': `${overlap}px` } as React.CSSProperties}>
             <AnimatePresence>
-              {v.hand.map((c) => {
+              {shownHand.map((c) => {
                 const ok = yourTurn && isLegal(c);
                 const isSel = sameCard(c, selected);
                 const blocked = v.blocked.some((b) => sameCard(b, c)) && v.phase === 'attack';
