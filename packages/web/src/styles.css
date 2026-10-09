@@ -1971,3 +1971,45 @@ button.row:hover {
   color: var(--ivory-faint);
   font-style: italic;
 }
+
+/* ---------- Couleurs lys et étoile (5-6 joueurs) ---------- */
+.suit-svg {
+  width: 1em;
+  height: 1em;
+  display: block;
+}
+.card .s1 .suit-svg {
+  width: 0.95em;
+  height: 0.95em;
+}
+.extra-suits-note {
+  font-size: 13px;
+  background: rgba(216, 174, 85, 0.1);
+  border: 1px solid rgba(216, 174, 85, 0.4);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.extra-suits-note .suit {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+}
+.extra-suits-note .suit.red {
+  color: #e05a4f;
+}
+.pill-suit,
+.intro-suit {
+  display: inline-flex;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.12em;
+}
+.pill-suit.red,
+.intro-suit.red {
+  color: #e05a4f;
+}

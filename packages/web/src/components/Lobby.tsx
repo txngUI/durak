@@ -1,18 +1,16 @@
-import { MAX_PLAYERS, MIN_PLAYERS, type RoomView, TURN_SECONDS_OPTIONS } from '@durak/engine';
+import { EXTRA_SUITS_FROM_PLAYERS, MAX_PLAYERS, MIN_PLAYERS, type RoomView, TURN_SECONDS_OPTIONS } from '@durak/engine';
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import { AVATAR_COLORS, COLOR_NAMES } from '../format';
 import { inviteLink, useStore } from '../store';
 import { AppBar, Avatar } from './Account';
 import { Chat } from './Chat';
 import { HostBadge } from './HostBadge';
+import { SuitGlyph } from './PlayingCard';
 
 export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }) {
-  const { start, leave, setTurnSeconds, reorder, toast, kick, setColor, accountsEnabled, openProfile, auth, openAuth } =
+  const { start, leave, setTurnSeconds, reorder, toast, kick, accountsEnabled, openProfile, auth, openAuth } =
     useStore();
   const [confirmKick, setConfirmKick] = useState<string | null>(null);
-  const myColor = room.players.find((p) => p.id === room.you)?.color ?? 0;
-  const takenColors = new Set(room.players.filter((p) => p.id !== room.you).map((p) => p.color));
   const isHost = room.you === room.hostId;
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const count = room.players.length;
@@ -172,26 +170,24 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
           })}
         </ol>
 
-        <div className="colors" role="radiogroup" aria-label="Ta couleur">
-          <span className="hint">Ta couleur :</span>
-          {AVATAR_COLORS.map(([bg], c) => {
-            const taken = takenColors.has(c);
-            return (
-              <button
-                key={c}
-                type="button"
-                role="radio"
-                aria-checked={c === myColor}
-                aria-label={`${COLOR_NAMES[c]}${taken ? ' (prise)' : ''}`}
-                title={taken ? `${COLOR_NAMES[c]} : déjà prise` : COLOR_NAMES[c]}
-                className={`swatch ${c === myColor ? 'on' : ''}`}
-                style={{ background: bg }}
-                disabled={taken}
-                onClick={() => c !== myColor && setColor(c)}
-              />
-            );
-          })}
-        </div>
+        {count >= EXTRA_SUITS_FROM_PLAYERS && (
+          <div className="extra-suits-note">
+            <span>À {count} joueurs, on joue avec <b>54 cartes</b> : deux couleurs en plus,</span>
+            <span>
+              <span className="suit">
+                <SuitGlyph suit="L" />
+              </span>{' '}
+              lys (noir)
+            </span>
+            <span>et</span>
+            <span>
+              <span className="suit red">
+                <SuitGlyph suit="E" />
+              </span>{' '}
+              étoile (rouge).
+            </span>
+          </div>
+        )}
 
         <div className="foot">
           <div className="hint" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -237,6 +233,13 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
             )}
           </div>
         </div>
+        {!auth.profile && (
+          <div>
+            <button type="button" className="linkish" onClick={onRules}>
+              Règles du jeu
+            </button>
+          </div>
+        )}
         <section className="lobby-chat" aria-label="Chat du salon">
           <Chat room={room} />
         </section>

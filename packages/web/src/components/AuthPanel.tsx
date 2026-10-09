@@ -1,6 +1,5 @@
 import { NAME_MAX_LENGTH } from '@durak/engine';
 import { type FormEvent, useState } from 'react';
-import { AVATAR_COLORS, COLOR_NAMES } from '../format';
 import { useStore } from '../store';
 import { Modal } from './Modal';
 
@@ -103,7 +102,6 @@ export function ProfileSetup() {
   const [username, setUsername] = useState(() =>
     (auth.suggestedName ?? '').replace(/[^\p{L}\p{N} _.-]/gu, '').slice(0, NAME_MAX_LENGTH),
   );
-  const [color, setColor] = useState(0);
   const [busy, setBusy] = useState(false);
   const ok = username.trim().length >= 2;
 
@@ -111,7 +109,7 @@ export function ProfileSetup() {
     e.preventDefault();
     if (!ok) return;
     setBusy(true);
-    await saveProfile(username.trim(), color);
+    await saveProfile(username.trim(), 0);
     setBusy(false);
   };
 
@@ -131,22 +129,6 @@ export function ProfileSetup() {
             onChange={(e) => setUsername(e.target.value)}
           />
         </label>
-        <div className="colors" role="radiogroup" aria-label="Ta couleur préférée">
-          <span className="hint">Couleur :</span>
-          {AVATAR_COLORS.map(([bg], c) => (
-            <button
-              key={c}
-              type="button"
-              role="radio"
-              aria-checked={c === color}
-              aria-label={COLOR_NAMES[c]}
-              title={COLOR_NAMES[c]}
-              className={`swatch ${c === color ? 'on' : ''}`}
-              style={{ background: bg }}
-              onClick={() => setColor(c)}
-            />
-          ))}
-        </div>
         <div className="buttons">
           <button type="button" className="btn ghost" onClick={() => signOut()}>
             Annuler

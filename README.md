@@ -9,6 +9,8 @@ Les règles suivent [le PDF d'origine](docs/maquettes.html#regles), avec ces lec
 - **Passer** : un joueur qui passe son tour, volontairement ou faute de carte, ne peut plus relancer pendant ce pli.
 - **Korol** : le premier à vider sa main. Le durak de la partie précédente défend en premier à la suivante.
 - **Pas d'égalité** : si l'attaquant et le défenseur se vident sur le même pli, le défenseur est le durak.
+- **5 ou 6 joueurs** : 54 cartes, avec deux couleurs en plus, le lys ⚜ (noir) et l'étoile ★ (rouge).
+- **Partie bloquée** : pioche vide, plus aucune carte ne peut en battre une autre et la même situation revient : la partie s'arrête, le joueur qui a le plus de cartes est le durak (à égalité, celui qui défendait). Jamais observé à 36 cartes en simulation ; environ 1 partie sur 5 à 54 cartes.
 - **3 poses d'affilée** : une carte posée en attaque sur 2 plis consécutifs ne peut pas l'être au 3ᵉ.
 - À 6 joueurs la pioche est vide après la donne : la dernière carte distribuée donne l'atout.
 

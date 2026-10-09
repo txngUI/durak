@@ -19,7 +19,7 @@ import { Chat, useUnreadChat } from './Chat';
 import { FLIGHT_SECONDS, type Flight, Flights } from './Flights';
 import { HostBadge } from './HostBadge';
 import { Modal } from './Modal';
-import { PlayingCard } from './PlayingCard';
+import { PlayingCard, SuitGlyph } from './PlayingCard';
 
 type Exit = 'take' | 'discard';
 
@@ -365,7 +365,10 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         </span>
         <div className="right">
           <span className="pill">
-            Atout {SUIT_SYMBOL[v.trumpSuit]}
+            Atout{' '}
+            <span className={`pill-suit ${isRed(v.trumpSuit) ? 'red' : ''}`}>
+              <SuitGlyph suit={v.trumpSuit} />
+            </span>
           </span>
           <span className="pill">Pli {v.round}</span>
           <span className="pill room-code">{room.code}</span>
@@ -685,7 +688,11 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: reduceMotion ? 0 : 2.7 }}
             >
-              Atout <span className={isRed(v.trumpSuit) ? 'red' : ''}>{SUIT_SYMBOL[v.trumpSuit]}</span> {SUIT_NAME[v.trumpSuit]}
+              Atout{' '}
+              <span className={`intro-suit ${isRed(v.trumpSuit) ? 'red' : ''}`}>
+                <SuitGlyph suit={v.trumpSuit} />
+              </span>{' '}
+              {SUIT_NAME[v.trumpSuit]}
             </motion.p>
           </motion.div>
         )}
@@ -753,6 +760,12 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
         <Modal label="Fin de partie">
           <Medal kind={v.durak === v.you ? 'durak' : korol === v.you ? 'korol' : 'done'} />
           <span className="eyebrow">Partie terminée en {v.round} plis</span>
+          {v.log.some((e) => e.t === 'stalemate') && (
+            <p className="hint">
+              Partie bloquée : plus aucune carte ne pouvait en battre une autre. Le joueur avec le plus de cartes est le
+              durak.
+            </p>
+          )}
           <div className="verdict">
             {korol >= 0 && (
               <div className="korol">

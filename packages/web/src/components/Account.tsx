@@ -46,15 +46,17 @@ const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)} %` : '�
 
 /** Barre du haut de l'application : profil, classement, connexion / déconnexion, règles. */
 export function AppBar({ onRules }: { onRules?: () => void }) {
-  const { auth, accountsEnabled, page, navigate, signOut, openAuth } = useStore();
+  const { auth, accountsEnabled, page, navigate, signOut } = useStore();
   const me = auth.profile;
+  // Réservée aux joueurs connectés : un invité garde l'accueil d'origine.
+  if (!accountsEnabled || !me) return null;
   return (
     <header className="appbar">
       <button type="button" className="brand" onClick={() => navigate({ name: 'main' })}>
         Durak
       </button>
       <nav className="appbar-nav" aria-label="Navigation">
-        {accountsEnabled && me && (
+        {(
           <button
             aria-label="Profil"
             type="button"
@@ -66,7 +68,7 @@ export function AppBar({ onRules }: { onRules?: () => void }) {
             <span className="nav-label">Profil</span>
           </button>
         )}
-        {accountsEnabled && (
+        {(
           <button
             aria-label="Classement"
             type="button"
@@ -89,24 +91,12 @@ export function AppBar({ onRules }: { onRules?: () => void }) {
             <span className="nav-label">Règles</span>
           </button>
         )}
-        {accountsEnabled &&
-          (auth.signedIn ? (
-            <button
-            aria-label="Se déconnecter" type="button" className="nav-btn" onClick={() => signOut()}>
-              <span className="nav-icon" aria-hidden="true">
-                ⏻
-              </span>
-              <span className="nav-label">Se déconnecter</span>
-            </button>
-          ) : (
-            <button
-            aria-label="Se connecter" type="button" className="nav-btn primary" onClick={() => openAuth(true)}>
-              <span className="nav-icon" aria-hidden="true">
-                →
-              </span>
-              <span className="nav-label">Se connecter</span>
-            </button>
-          ))}
+        <button type="button" aria-label="Se déconnecter" className="nav-btn" onClick={() => signOut()}>
+          <span className="nav-icon" aria-hidden="true">
+            ⏻
+          </span>
+          <span className="nav-label">Se déconnecter</span>
+        </button>
       </nav>
     </header>
   );

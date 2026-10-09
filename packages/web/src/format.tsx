@@ -42,6 +42,8 @@ export function logText(e: LogEntry, name: (p: number) => string): { who?: strin
       return { who: name(e.p), text: 'ne peut pas ouvrir (règle des 3 poses)' };
     case 'out':
       return { who: name(e.p), text: 'n’a plus de cartes : sorti !' };
+    case 'stalemate':
+      return { text: 'Partie bloquée : plus personne ne peut défendre. Le plus de cartes en main perd.', tone: 'red' };
     case 'end':
       return { text: `${name(e.durak ?? -1)} est le durak.`, tone: 'red' };
   }

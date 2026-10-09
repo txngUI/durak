@@ -10,6 +10,12 @@ export function Rules({ onClose }: { onClose: () => void }) {
       </p>
       <h3>Valeur des cartes</h3>
       <p>6 · 7 · 8 · 9 · 10 · J · Q · K · A. L’atout bat toujours une carte non-atout.</p>
+      <h3>À 5 ou 6 joueurs</h3>
+      <p>
+        On ajoute deux couleurs de 9 cartes (du 6 à l’As) : le <b>lys ⚜︎</b>, noir, et l’<b>étoile ★</b>, rouge. Le jeu
+        passe à 54 cartes, ce qui laisse une vraie pioche. Elles se jouent exactement comme les autres couleurs, et l’une
+        d’elles peut être l’atout.
+      </p>
       <h3>Mise en place</h3>
       <ul>
         <li>6 cartes par joueur, distribuées 2 par 2.</li>
@@ -51,6 +57,11 @@ export function Rules({ onClose }: { onClose: () => void }) {
         <li>
           Le dernier joueur à avoir encore des cartes est le durak. Il n’y a pas d’égalité : si l’attaquant et le
           défenseur se vident sur le même pli, le défenseur est le durak.
+        </li>
+        <li>
+          Partie bloquée : si la pioche est vide, que plus aucune carte en jeu ne peut en battre une autre et que la
+          même situation revient, la partie s’arrête. Le joueur qui a le plus de cartes est le durak (à égalité, celui
+          qui défendait).
         </li>
       </ul>
       <div className="buttons">

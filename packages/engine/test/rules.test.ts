@@ -27,10 +27,31 @@ describe('mise en place', () => {
     expect(new Set(all).size).toBe(36);
   });
 
-  it('à 6 joueurs, la dernière carte distribuée donne l’atout', () => {
-    const g = createGame(names(6), { seed: 3 });
+  it('à 6 joueurs avec 36 cartes, la dernière carte distribuée donne l’atout', () => {
+    const g = createGame(names(6), { seed: 3, extraSuits: false });
     expect(g.deck).toHaveLength(0);
     expect(g.players[5].hand).toContainEqual(g.trumpCard);
+  });
+
+  it('à 5 ou 6 joueurs, on ajoute le lys et l’étoile : 54 cartes', () => {
+    for (const n of [5, 6]) {
+      const g = createGame(names(n), { seed: 11 });
+      expect(g.extraSuits).toBe(true);
+      const all = [...g.players.flatMap((p) => p.hand), ...g.deck].map(cardId);
+      expect(new Set(all).size).toBe(54);
+      expect(g.deck).toHaveLength(54 - 6 * n);
+      expect(g.deck[0]).toEqual(g.trumpCard);
+      expect(all.filter((id) => id.endsWith('L'))).toHaveLength(9);
+      expect(all.filter((id) => id.endsWith('E'))).toHaveLength(9);
+    }
+    expect(createGame(names(4), { seed: 11 }).extraSuits).toBe(false);
+  });
+
+  it('le lys et l’étoile se battent comme les autres couleurs', () => {
+    expect(beats(c('9L'), c('JL'), 'H')).toBe(true);
+    expect(beats(c('9L'), c('AE'), 'H')).toBe(false);
+    expect(beats(c('AS'), c('6E'), 'E')).toBe(true);
+    expect(beats(c('KE'), c('QE'), 'E')).toBe(false);
   });
 
   it('le joueur avec l’atout le plus faible défend en premier', () => {
@@ -330,6 +351,71 @@ describe('affichage', () => {
   });
 });
 
+/** Joue mécaniquement (attaque avec la 1re carte possible, ramasse toujours) jusqu'à la fin. */
+function playOut(s: GameState, max = 200): GameState {
+  for (let i = 0; i < max && s.phase !== 'finished'; i++) {
+    const v = viewFor(s, s.actor);
+    const a: Action = v.legal.canTake ? take : v.legal.canPass ? pass : { type: 'attack', card: v.legal.attack[0] };
+    s = play(s, [s.actor, a]);
+  }
+  return s;
+}
+
+describe('règle anti-blocage', () => {
+  it('arrête une partie qui tourne en rond ; le durak a le plus de cartes', () => {
+    // Atout cœur, aucun cœur en jeu, couleurs toutes différentes : plus personne ne peut défendre,
+    // et à 2 joueurs les cartes font des allers-retours sans fin.
+    const s = playOut(setup({ hands: ['AD 6L', 'JE 10C 9S'], trump: 'H', attacker: 1, defender: 0 }));
+    expect(s.phase).toBe('finished');
+    expect(s.log.some((e) => e.t === 'stalemate')).toBe(true);
+    const sizes = s.players.map((p) => p.hand.length);
+    expect(sizes[s.durak!]).toBe(Math.max(...sizes));
+  });
+
+  it('durak : le plus de cartes, et à égalité celui qui défendait au dernier pli', () => {
+    let ties = 0;
+    let stopped = 0;
+    for (const [h0, h1] of [
+      ['AD', 'JE 10C 9S'],
+      ['AD 6L', 'JE 10C'],
+      ['AD 6L 7C', 'JE 10S'],
+      // Couleurs toutes différentes (le joueur simulé ramasse toujours, donc il faut qu'aucune
+      // défense ne soit possible, sinon c'est lui qui tournerait en rond, pas la règle).
+      ['AD', 'JE 10C 9S 8L'],
+      ['AD 7C', 'JE 10S 9L'],
+    ]) {
+      const s = playOut(setup({ hands: [h0, h1], trump: 'H', attacker: 1, defender: 0 }));
+      expect(s.phase).toBe('finished');
+      if (!s.log.some((e) => e.t === 'stalemate')) continue;
+      stopped++;
+      const sizes = s.players.map((p) => p.hand.length);
+      const lastTake = s.log.filter((e) => e.t === 'take').at(-1) as { p: number };
+      if (sizes[0] === sizes[1]) {
+        ties++;
+        expect(s.durak).toBe(lastTake.p);
+      } else expect(sizes[s.durak!]).toBe(Math.max(...sizes));
+    }
+    expect(stopped).toBeGreaterThanOrEqual(2);
+    expect(ties).toBeGreaterThan(0);
+  });
+
+  it('laisse finir normalement quand un attaquant peut encore poser sa dernière carte', () => {
+    // Personne ne peut défendre, mais P1 n'a qu'une carte : il la pose et sort.
+    let s = setup({ hands: ['AD 6L', '9S'], trump: 'H', attacker: 1, defender: 0 });
+    s = play(s, [1, atk('9S')], [0, take]);
+    expect(s.phase).toBe('finished');
+    expect(s.log.some((e) => e.t === 'stalemate')).toBe(false);
+    expect(s.durak).toBe(0);
+  });
+
+  it('ne s’arrête pas tant qu’une défense reste possible, même entre cartes d’un même joueur', () => {
+    // P1 tient 7♠ et 9♠ : une fois le 7♠ ramassé par P0, P1 pourra le battre.
+    let s = setup({ hands: ['JE', '7S 9S'], trump: 'H', attacker: 1, defender: 0 });
+    s = play(s, [1, atk('7S')], [0, take]);
+    expect(s.phase).not.toBe('finished');
+  });
+});
+
 describe('arbitrage', () => {
   it('refuse les actions hors tour et ne modifie jamais l’état reçu', () => {
     const s = setup({ hands: ['AS', '6S 7S'], trump: 'H', attacker: 1, defender: 0 });
@@ -359,12 +445,23 @@ describe('arbitrage', () => {
   });
 });
 
-describe('parties complètes aléatoires', () => {
-  it('conserve les 36 cartes et se termine toujours', () => {
+/** Vérifie qu'aucune carte ne disparaît ni n'apparaît en cours de partie. */
+function expectAllCards(s: GameState) {
+  const total =
+    s.players.reduce((a, p) => a + p.hand.length, 0) +
+    s.deck.length +
+    s.discardCount +
+    s.table.reduce((a, t) => a + 1 + (t.defense ? 1 : 0), 0);
+  expect(total).toBe(s.extraSuits ? 54 : 36);
+  expect(s.table.length).toBeLessThanOrEqual(6);
+}
+
+describe('parties complètes simulées', () => {
+  it('coups au hasard, 36 cartes : toujours légaux, cartes conservées, partie terminée', () => {
     for (let n = 2; n <= 6; n++) {
       for (let seed = 1; seed <= 60; seed++) {
         const rng = createRng(seed * 7 + n);
-        let s: GameState = createGame(names(n), { seed });
+        let s: GameState = createGame(names(n), { seed, extraSuits: false });
         let steps = 0;
         while (s.phase !== 'finished') {
           const v = viewFor(s, s.actor);
@@ -380,13 +477,37 @@ describe('parties complètes aléatoires', () => {
           expect(r.ok).toBe(true);
           if (!r.ok) break;
           s = r.state;
-          const total =
-            s.players.reduce((a, p) => a + p.hand.length, 0) +
-            s.deck.length +
-            s.discardCount +
-            s.table.reduce((a, t) => a + 1 + (t.defense ? 1 : 0), 0);
-          expect(total).toBe(36);
-          expect(s.table.length).toBeLessThanOrEqual(6);
+          expectAllCards(s);
+          expect(++steps).toBeLessThan(3000);
+        }
+        expect(s.players.filter((p) => p.place === null)).toHaveLength(1);
+        expect(s.durak).not.toBeNull();
+      }
+    }
+  }, 30_000);
+
+  it('54 cartes à 5 et 6 joueurs : des joueurs qui défendent quand ils peuvent finissent toujours', () => {
+    for (const n of [5, 6]) {
+      for (let seed = 1; seed <= 60; seed++) {
+        const rng = createRng(seed * 13 + n);
+        let s: GameState = createGame(names(n), { seed });
+        expect(s.extraSuits).toBe(true);
+        let steps = 0;
+        while (s.phase !== 'finished') {
+          const v = viewFor(s, s.actor);
+          const L = v.legal;
+          // Choix varié parmi les bons coups : un joueur réel ne rejoue pas mécaniquement le même pli.
+          const any = (cards: typeof L.attack) => cards[Math.floor(rng() * cards.length)];
+          let action: Action;
+          if (L.chooseTargets.length) action = { type: 'chooseAttacker', target: L.chooseTargets[0] };
+          else if (s.phase === 'defend') action = L.defend.length && rng() < 0.9 ? def0(any(L.defend)) : take;
+          else if (!L.canPass) action = { type: 'attack', card: any(L.attack) };
+          else action = L.attack.length && rng() < 0.4 ? { type: 'attack', card: any(L.attack) } : pass;
+          const r = applyAction(s, s.actor, action);
+          expect(r.ok).toBe(true);
+          if (!r.ok) break;
+          s = r.state;
+          expectAllCards(s);
           expect(++steps).toBeLessThan(3000);
         }
         expect(s.players.filter((p) => p.place === null)).toHaveLength(1);
@@ -395,3 +516,5 @@ describe('parties complètes aléatoires', () => {
     }
   }, 30_000);
 });
+
+const def0 = (card: { r: number; s: string }): Action => ({ type: 'defend', card: card as never });

@@ -48,6 +48,8 @@ export interface PlayerView {
     canPass: boolean;
     chooseTargets: number[];
   };
+  /** Partie à 54 cartes, avec le lys et l'étoile. */
+  extraSuits: boolean;
   /** Dernier pli terminé (cartes jouées et issue), affiché brièvement par l'interface. */
   lastRound: LastRound | null;
   durak: number | null;
@@ -84,6 +86,7 @@ export function viewFor(s: GameState, you: number): PlayerView {
       canPass: isActor && s.phase === 'attack' && s.table.length > 0,
       chooseTargets: isActor && s.phase === 'chooseAttacker' ? neighbours(s, s.defender) : [],
     },
+    extraSuits: !!s.extraSuits,
     lastRound: s.lastRound,
     durak: s.durak,
     log: s.log.slice(-40),

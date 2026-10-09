@@ -1,4 +1,5 @@
-export type Suit = 'C' | 'D' | 'H' | 'S';
+/** C trèfle, D carreau, H cœur, S pique ; à 5-6 joueurs : L lys (noir), E étoile (rouge). */
+export type Suit = 'C' | 'D' | 'H' | 'S' | 'L' | 'E';
 export type Rank = 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
 
 export interface Card {
@@ -6,17 +7,32 @@ export interface Card {
   s: Suit;
 }
 
-export const SUITS: Suit[] = ['C', 'D', 'H', 'S'];
+/** Les 4 couleurs classiques (jeu de 36 cartes). */
+export const BASE_SUITS: Suit[] = ['C', 'D', 'H', 'S'];
+/** Couleurs ajoutées à 5 ou 6 joueurs (jeu de 54 cartes). */
+export const EXTRA_SUITS: Suit[] = ['L', 'E'];
+/** Toutes les couleurs possibles. */
+export const SUITS: Suit[] = [...BASE_SUITS, ...EXTRA_SUITS];
+/** À partir de ce nombre de joueurs, on joue avec les deux couleurs supplémentaires. */
+export const EXTRA_SUITS_FROM_PLAYERS = 5;
 export const RANKS: Rank[] = [6, 7, 8, 9, 10, 11, 12, 13, 14];
 
-export const SUIT_SYMBOL: Record<Suit, string> = { C: '♣', D: '♦', H: '♥', S: '♠' };
-export const SUIT_NAME: Record<Suit, string> = { C: 'trèfle', D: 'carreau', H: 'cœur', S: 'pique' };
+// \uFE0E : affichage en texte (sinon certains téléphones dessinent un émoji coloré).
+export const SUIT_SYMBOL: Record<Suit, string> = { C: '♣', D: '♦', H: '♥', S: '♠', L: '⚜\uFE0E', E: '★' };
+export const SUIT_NAME: Record<Suit, string> = {
+  C: 'trèfle',
+  D: 'carreau',
+  H: 'cœur',
+  S: 'pique',
+  L: 'lys',
+  E: 'étoile',
+};
 const RANK_LABEL: Record<Rank, string> = {
   6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A',
 };
 
 export const rankLabel = (r: Rank) => RANK_LABEL[r];
-export const isRed = (s: Suit) => s === 'D' || s === 'H';
+export const isRed = (s: Suit) => s === 'D' || s === 'H' || s === 'E';
 
 /** Identifiant stable d'une carte, ex. "12H" pour la dame de cœur. */
 export const cardId = (c: Card) => `${c.r}${c.s}`;
@@ -41,8 +57,9 @@ export function beats(attack: Card, defense: Card, trump: Suit): boolean {
   return defense.s === trump;
 }
 
-export function fullDeck(): Card[] {
-  return SUITS.flatMap((s) => RANKS.map((r) => ({ r, s })));
+/** Jeu de 36 cartes, ou de 54 avec les couleurs lys et étoile. */
+export function fullDeck(extraSuits = false): Card[] {
+  return (extraSuits ? SUITS : BASE_SUITS).flatMap((s) => RANKS.map((r) => ({ r, s })));
 }
 
 /** Générateur pseudo-aléatoire déterministe (mulberry32). */

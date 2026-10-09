@@ -2,6 +2,7 @@ import {
   type Card,
   type Rank,
   type Suit,
+  EXTRA_SUITS_FROM_PLAYERS,
   RANKS,
   SUITS,
   beats,
@@ -44,6 +45,8 @@ export type LogEntry =
   | { t: 'discard'; count: number }
   | { t: 'noAttack'; p: number }
   | { t: 'out'; p: number; place: number }
+  /** Partie arrêtée par la règle anti-blocage. */
+  | { t: 'stalemate'; durak: number }
   | { t: 'end'; durak: number | null };
 
 export interface GameState {
@@ -70,6 +73,10 @@ export interface GameState {
   attackStreaks: Record<string, { round: number; count: number }>;
   /** Dernier pli terminé, pour que l'interface puisse le montrer un instant. */
   lastRound: LastRound | null;
+  /** Partie à 54 cartes, avec le lys et l'étoile. */
+  extraSuits?: boolean;
+  /** Situations déjà vues pendant un blocage (règle anti-blocage). */
+  cycleWatch?: string[];
   durak: number | null;
   log: LogEntry[];
 }
@@ -96,6 +103,8 @@ export interface NewGameOptions {
   seed?: number;
   /** Durak de la partie précédente : il défend en premier s'il joue. */
   previousDurakId?: string | null;
+  /** Jouer avec le lys et l'étoile (54 cartes). Par défaut : à partir de 5 joueurs. */
+  extraSuits?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,7 +117,8 @@ export function createGame(
 ): GameState {
   if (players.length < 2 || players.length > 6) throw new Error('Il faut entre 2 et 6 joueurs');
   const rng = createRng(opts.seed ?? Math.floor(Math.random() * 2 ** 32));
-  const deck = shuffle(fullDeck(), rng);
+  const extraSuits = opts.extraSuits ?? players.length >= EXTRA_SUITS_FROM_PLAYERS;
+  const deck = shuffle(fullDeck(extraSuits), rng);
   const n = players.length;
   const hands: Card[][] = players.map(() => []);
 
@@ -171,6 +181,7 @@ export function createGame(
     passed: [],
     attackStreaks: {},
     lastRound: null,
+    extraSuits,
     durak: null,
     log: [{ t: 'start', defender, reason, trump: trumpCard }],
   };
@@ -345,12 +356,63 @@ function endRound(s: GameState, defended: boolean) {
 
   // Tour suivant : le voisin du dernier attaquant, du côté opposé au défenseur, attaque
   // le joueur en jeu qui le précède (le dernier attaquant s'il est encore en jeu).
+  const lastDefender = s.defender;
   const attacker = nextInGame(s, s.attacker, s.step);
   s.attacker = attacker;
   s.defender = nextInGame(s, attacker, s.step === 1 ? -1 : 1);
+
+  // Règle anti-blocage. Pioche vide et plus aucune carte en jeu ne peut en battre une autre :
+  // chaque pli se termine par un ramassage. La partie peut encore finir (un attaquant pose sa
+  // dernière carte), mais si une situation déjà vue revient à l'identique, elle tournerait sans
+  // fin : on l'arrête, et le durak est celui qui a le plus de cartes (à égalité, le défenseur).
+  if (s.deck.length === 0 && isStalemate(s, remaining)) {
+    const seen = (s.cycleWatch ??= []);
+    const key = situationKey(s);
+    if (seen.includes(key)) {
+      endByStalemate(s, remaining, lastDefender);
+      return;
+    }
+    seen.push(key);
+  }
   s.round += 1;
   s.phase = 'attack';
   beginRound(s);
+}
+
+/** Empreinte d'une situation de fin de partie : mains, rôles et cartes en série d'attaques. */
+function situationKey(s: GameState): string {
+  const hands = s.players.map((p) => (p.place === null ? p.hand.map(cardId).sort().join('.') : '-')).join('|');
+  const streaks = Object.entries(s.attackStreaks)
+    .filter(([, v]) => v.round === s.round)
+    .map(([id, v]) => `${id}:${v.count}`)
+    .sort()
+    .join(',');
+  return `${s.attacker}>${s.defender}#${hands}#${streaks}`;
+}
+
+function endByStalemate(s: GameState, remaining: number[], lastDefender: number) {
+  const ranked = remaining
+    .slice()
+    .sort(
+      (a, b) =>
+        s.players[a].hand.length - s.players[b].hand.length ||
+        Number(a === lastDefender) - Number(b === lastDefender),
+    );
+  const durak = ranked[ranked.length - 1];
+  let place = s.players.filter((p) => p.place !== null).length;
+  for (const p of ranked.slice(0, -1)) s.players[p].place = place++;
+  s.phase = 'finished';
+  s.actor = -1;
+  s.durak = durak;
+  s.log.push({ t: 'stalemate', durak });
+  s.log.push({ t: 'end', durak });
+}
+
+/** Aucune carte détenue par les joueurs encore en jeu ne peut en battre une autre. */
+export function isStalemate(s: GameState, remaining: number[]): boolean {
+  const cards = remaining.flatMap((p) => s.players[p].hand);
+  for (const a of cards) for (const d of cards) if (a !== d && beats(a, d, s.trumpSuit)) return false;
+  return true;
 }
 
 function removeFromHand(s: GameState, p: number, card: Card): boolean {

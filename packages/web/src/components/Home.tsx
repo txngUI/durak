@@ -124,6 +124,13 @@ export function Home({ onRules }: { onRules: () => void }) {
             Rejoindre
           </button>
           {!nameOk && <span className="hint">Choisis d’abord un pseudo.</span>}
+          {!account && (
+            <div>
+              <button type="button" className="linkish" onClick={onRules}>
+                Règles du jeu
+              </button>
+            </div>
+          )}
         </motion.form>
         </div>
       </div>
