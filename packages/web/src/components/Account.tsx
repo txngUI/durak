@@ -10,7 +10,6 @@ import {
 } from '../auth';
 import { avatarColors, initial } from '../format';
 import { useStore } from '../store';
-import { Modal } from './Modal';
 
 /** Pastille de joueur : photo Discord/Google si disponible, sinon initiale sur sa couleur. */
 export function Avatar({
@@ -45,23 +44,87 @@ export function Avatar({
 
 const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)} %` : '–');
 
-/** Bandeau du joueur connecté : profil, classement, déconnexion. */
-export function AccountChip() {
-  const { auth, openProfile, openLeaderboard, signOut } = useStore();
-  if (!auth.profile) return null;
-  const p = auth.profile;
+/** Barre du haut de l'application : profil, classement, connexion / déconnexion, règles. */
+export function AppBar({ onRules }: { onRules?: () => void }) {
+  const { auth, accountsEnabled, page, navigate, signOut, openAuth } = useStore();
+  const me = auth.profile;
   return (
-    <div className="account-chip">
-      <button type="button" className="chip" onClick={() => openProfile(p.id)}>
-        <Avatar name={p.username} color={p.color} url={p.avatarUrl} size={28} />
-        {p.username}
+    <header className="appbar">
+      <button type="button" className="brand" onClick={() => navigate({ name: 'main' })}>
+        Durak
       </button>
-      <button type="button" className="icon-btn" onClick={() => openLeaderboard(true)}>
-        Classement
-      </button>
-      <button type="button" className="icon-btn" onClick={() => signOut()}>
-        Se déconnecter
-      </button>
+      <nav className="appbar-nav" aria-label="Navigation">
+        {accountsEnabled && me && (
+          <button
+            aria-label="Profil"
+            type="button"
+            className="nav-btn"
+            aria-current={page.name === 'profile' && page.id === me.id ? 'page' : undefined}
+            onClick={() => navigate({ name: 'profile', id: me.id })}
+          >
+            <Avatar name={me.username} color={me.color} url={me.avatarUrl} size={22} />
+            <span className="nav-label">Profil</span>
+          </button>
+        )}
+        {accountsEnabled && (
+          <button
+            aria-label="Classement"
+            type="button"
+            className="nav-btn"
+            aria-current={page.name === 'leaderboard' ? 'page' : undefined}
+            onClick={() => navigate({ name: 'leaderboard' })}
+          >
+            <span className="nav-icon" aria-hidden="true">
+              ♛
+            </span>
+            <span className="nav-label">Classement</span>
+          </button>
+        )}
+        {onRules && (
+          <button
+            aria-label="Règles" type="button" className="nav-btn" onClick={onRules}>
+            <span className="nav-icon" aria-hidden="true">
+              ?
+            </span>
+            <span className="nav-label">Règles</span>
+          </button>
+        )}
+        {accountsEnabled &&
+          (auth.signedIn ? (
+            <button
+            aria-label="Se déconnecter" type="button" className="nav-btn" onClick={() => signOut()}>
+              <span className="nav-icon" aria-hidden="true">
+                ⏻
+              </span>
+              <span className="nav-label">Se déconnecter</span>
+            </button>
+          ) : (
+            <button
+            aria-label="Se connecter" type="button" className="nav-btn primary" onClick={() => openAuth(true)}>
+              <span className="nav-icon" aria-hidden="true">
+                →
+              </span>
+              <span className="nav-label">Se connecter</span>
+            </button>
+          ))}
+      </nav>
+    </header>
+  );
+}
+
+/** Mise en page commune aux pages (profil, classement) : barre du haut + contenu centré. */
+function PageShell({ title, children, onRules }: { title: string; children: React.ReactNode; onRules?: () => void }) {
+  const { goBack } = useStore();
+  return (
+    <div className="app-shell">
+      <AppBar onRules={onRules} />
+      <main className="page">
+        <button type="button" className="back-link" onClick={goBack}>
+          ← Retour
+        </button>
+        <h1 className="page-title">{title}</h1>
+        {children}
+      </main>
     </div>
   );
 }
@@ -69,9 +132,9 @@ export function AccountChip() {
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const monthFmt = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' });
 
-/** Profil d'un joueur : chiffres clés, 10 dernières parties, historique. */
-export function ProfileModal({ id }: { id: string }) {
-  const { openProfile, openLeaderboard, auth } = useStore();
+/** Page profil d'un joueur : chiffres clés, 10 dernières parties, historique. */
+export function ProfilePage({ id, onRules }: { id: string; onRules?: () => void }) {
+  const { navigate, auth } = useStore();
   const [data, setData] = useState<{ stats: ProfileStats; createdAt: string | null; rank: number | null } | null | 'loading'>(
     'loading',
   );
@@ -92,23 +155,17 @@ export function ProfileModal({ id }: { id: string }) {
     };
   }, [id]);
 
-  const close = () => openProfile(null);
   if (data === 'loading')
     return (
-      <Modal label="Profil" wide onClose={close}>
+      <PageShell title="Profil" onRules={onRules}>
         <p className="hint">Chargement du profil…</p>
-      </Modal>
+      </PageShell>
     );
   if (!data)
     return (
-      <Modal label="Profil" wide onClose={close}>
-        <p>Ce profil est introuvable.</p>
-        <div className="buttons">
-          <button type="button" className="btn ghost" onClick={close}>
-            Fermer
-          </button>
-        </div>
-      </Modal>
+      <PageShell title="Profil introuvable" onRules={onRules}>
+        <p>Ce joueur n’existe pas ou a supprimé son compte.</p>
+      </PageShell>
     );
 
   const s = data.stats;
@@ -116,7 +173,7 @@ export function ProfileModal({ id }: { id: string }) {
   const recent = history.slice(0, 10).reverse();
   const streak: (HistoryEntry | null)[] = [...Array<null>(10 - recent.length).fill(null), ...recent];
   return (
-    <Modal label={`Profil de ${s.username}`} wide onClose={close}>
+    <PageShell title="Profil" onRules={onRules}>
       <div className="phead">
         <Avatar name={s.username} color={s.color} url={s.avatar_url} size={56} />
         <div>
@@ -155,6 +212,7 @@ export function ProfileModal({ id }: { id: string }) {
           <div className="s">or = Korol · rouge = durak</div>
         </div>
       </div>
+      <h2 className="section-title">Dernières parties</h2>
       {history.length > 0 ? (
         <div className="hist">
           {history.map((h, i) => (
@@ -172,21 +230,18 @@ export function ProfileModal({ id }: { id: string }) {
       ) : (
         <p className="hint">Aucune partie enregistrée pour l’instant.</p>
       )}
-      <div className="buttons">
-        <button type="button" className="btn ghost" onClick={() => openLeaderboard(true)}>
+      <div className="buttons left">
+        <button type="button" className="btn ghost" onClick={() => navigate({ name: 'leaderboard' })}>
           Voir le classement
         </button>
-        <button type="button" className="btn primary" onClick={close}>
-          Fermer
-        </button>
       </div>
-    </Modal>
+    </PageShell>
   );
 }
 
-/** Classement des comptes ayant assez de parties. */
-export function LeaderboardModal() {
-  const { openLeaderboard, openProfile, auth } = useStore();
+/** Page classement des comptes ayant assez de parties. */
+export function LeaderboardPage({ onRules }: { onRules?: () => void }) {
+  const { navigate, auth } = useStore();
   const [order, setOrder] = useState<'korol' | 'durak'>('korol');
   const [month, setMonth] = useState(false);
   const [rows, setRows] = useState<BoardRow[] | null>(null);
@@ -202,10 +257,8 @@ export function LeaderboardModal() {
     };
   }, [order, month]);
 
-  const close = () => openLeaderboard(false);
   return (
-    <Modal label="Classement" wide onClose={close}>
-      <h2>Classement</h2>
+    <PageShell title="Classement" onRules={onRules}>
       <div className="board-filters">
         <div className="tabs" role="tablist" aria-label="Critère">
           <button type="button" role="tab" aria-selected={order === 'korol'} onClick={() => setOrder('korol')}>
@@ -241,7 +294,7 @@ export function LeaderboardModal() {
             type="button"
             key={r.id}
             className={`row ${r.id === auth.profile?.id ? 'me' : ''}`}
-            onClick={() => openProfile(r.id)}
+            onClick={() => navigate({ name: 'profile', id: r.id })}
           >
             <span className="pos">{r.rank}</span>
             <span className="who">
@@ -255,11 +308,6 @@ export function LeaderboardModal() {
         ))}
       </div>
       <p className="hint">Classement à partir de {MIN_RANKED_GAMES} parties, sans les parties avec des bots.</p>
-      <div className="buttons">
-        <button type="button" className="btn primary" onClick={close}>
-          Fermer
-        </button>
-      </div>
-    </Modal>
+    </PageShell>
   );
 }

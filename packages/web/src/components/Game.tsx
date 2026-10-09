@@ -90,14 +90,32 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
   // --- Glisser-déposer sur le tapis -----------------------------------------
   const tableRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  /** Évite qu'un glisser se termine par un « clic » qui jouerait la carte. */
+  const justDragged = useRef(false);
   const onDragEnd = (card: Card, info: PanInfo) => {
     setDragging(false);
-    const r = tableRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const { x, y } = info.point;
-    const sx = x - window.scrollX;
-    const sy = y - window.scrollY;
-    if (sx >= r.left && sx <= r.right && sy >= r.top - 40 && sy <= r.bottom + 40) play(card);
+    setTimeout(() => (justDragged.current = false), 0);
+    const sx = info.point.x - window.scrollX;
+    const sy = info.point.y - window.scrollY;
+    // Lâchée sur le tapis : on joue la carte (si elle est jouable).
+    const t = tableRef.current?.getBoundingClientRect();
+    if (t && sx >= t.left && sx <= t.right && sy >= t.top - 40 && sy <= t.bottom + 40) {
+      if (isLegal(card)) play(card);
+      return;
+    }
+    // Lâchée près de la main : on la range à l'endroit choisi.
+    const h = handRef.current?.getBoundingClientRect();
+    if (!h || sy < h.top - 120) return;
+    const key = cardKey(card);
+    const others = shownHand.map(cardKey).filter((k) => k !== key);
+    const at = others.filter((k) => {
+      const r = handEls.current.get(k)?.getBoundingClientRect();
+      return r ? r.left + r.width / 2 < sx : false;
+    }).length;
+    const order = [...others.slice(0, at), key, ...others.slice(at)];
+    if (order.join() === shownHand.map(cardKey).join()) return;
+    setManualOrder(order);
+    setSortMode('manual');
   };
 
   // --- Événements marquants (bandeau) et sens de sortie des cartes ----------
@@ -274,13 +292,15 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
   } as React.CSSProperties;
   const avail = mobile ? vw - 24 : Math.min(vw - 420, 900);
   // Tri de la main au choix du joueur, retenu sur cet appareil.
-  const [sortMode, setSortMode] = useState<'rank' | 'suit'>(() => {
+  // « manual » : ordre choisi en glissant les cartes ; les nouvelles cartes arrivent à droite.
+  const [sortMode, setSortMode] = useState<'rank' | 'suit' | 'manual'>(() => {
     try {
       return localStorage.getItem(SORT_KEY) === 'suit' ? 'suit' : 'rank';
     } catch {
       return 'rank';
     }
   });
+  const [manualOrder, setManualOrder] = useState<string[]>([]);
   const changeSort = (m: 'rank' | 'suit') => {
     setSortMode(m);
     try {
@@ -289,7 +309,14 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
       /* stockage indisponible : le choix vaut pour cette page seulement */
     }
   };
-  const shownHand = sortMode === 'suit' ? sortHandBySuit(v.hand, v.trumpSuit) : v.hand;
+  const shownHand = useMemo(() => {
+    if (sortMode === 'suit') return sortHandBySuit(v.hand, v.trumpSuit);
+    if (sortMode === 'rank') return v.hand;
+    const pos = new Map(manualOrder.map((k, i) => [k, i]));
+    const rank = new Map(v.hand.map((c, i) => [cardKey(c), i]));
+    const at = (c: Card) => pos.get(cardKey(c)) ?? 1000 + rank.get(cardKey(c))!;
+    return [...v.hand].sort((a, b) => at(a) - at(b));
+  }, [v.hand, v.trumpSuit, sortMode, manualOrder]);
   const count = v.hand.length;
   /** Hors de ton tour, les cartes descendent d'un cinquième de leur hauteur. */
   const restDrop = Math.round(cw * 0.3);
@@ -519,6 +546,13 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
             <button type="button" role="radio" aria-checked={sortMode === 'suit'} onClick={() => changeSort('suit')}>
               par couleur
             </button>
+            {sortMode === 'manual' ? (
+              <span className="sort-manual" role="radio" aria-checked="true">
+                à ta façon
+              </span>
+            ) : (
+              <span className="sort-hint">ou glisse tes cartes</span>
+            )}
           </div>
           <div ref={handRef} className="hand" style={{ '--overlap': `${overlap}px` } as React.CSSProperties}>
             <AnimatePresence>
@@ -548,12 +582,17 @@ export function Game({ room, onRules }: { room: RoomView; onRules: () => void })
                     animate={{ opacity: 1, y: isSel ? -28 : ok ? -14 : yourTurn ? 0 : restDrop }}
                     whileHover={ok ? { y: isSel ? -30 : -22 } : undefined}
                     exit={{ opacity: 0 }}
-                    drag={ok}
+                    // Toutes les cartes se glissent : sur le tapis pour jouer, dans la main pour ranger.
+                    drag={!hidden.has(cardKey(c))}
                     dragSnapToOrigin
                     dragElastic={0.9}
-                    onDragStart={() => setDragging(true)}
+                    whileDrag={{ zIndex: 20, scale: 1.05 }}
+                    onDragStart={() => {
+                      justDragged.current = true;
+                      setDragging(ok);
+                    }}
                     onDragEnd={(_, info) => onDragEnd(c, info)}
-                    onClick={() => ok && (isSel ? play(c) : setSelected(c))}
+                    onClick={() => !justDragged.current && ok && (isSel ? play(c) : setSelected(c))}
                     tabIndex={ok ? 0 : -1}
                     onKeyDown={(e) => ok && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), isSel ? play(c) : setSelected(c))}
                     aria-pressed={ok ? isSel : undefined}

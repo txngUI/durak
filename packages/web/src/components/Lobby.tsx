@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { useState } from 'react';
 import { AVATAR_COLORS, COLOR_NAMES } from '../format';
 import { inviteLink, useStore } from '../store';
-import { AccountChip, Avatar } from './Account';
+import { AppBar, Avatar } from './Account';
 import { Chat } from './Chat';
 import { HostBadge } from './HostBadge';
 
@@ -37,7 +37,9 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
   };
 
   return (
-    <main className="lobby">
+    <div className="app-shell">
+      <AppBar onRules={onRules} />
+      <main className="lobby">
       <div className="lobby-inner">
         <div className="top">
           <h1 className="logo" style={{ fontSize: 28, margin: 0 }}>
@@ -60,9 +62,7 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
         </div>
 
         {accountsEnabled &&
-          (auth.profile ? (
-            <AccountChip />
-          ) : (
+          (auth.profile ? null : (
             !auth.signedIn && (
               <div className="hint">
                 Tu joues en invité.{' '}
@@ -240,12 +240,8 @@ export function Lobby({ room, onRules }: { room: RoomView; onRules: () => void }
         <section className="lobby-chat" aria-label="Chat du salon">
           <Chat room={room} />
         </section>
-        <div>
-          <button type="button" className="linkish" onClick={onRules}>
-            Règles du jeu
-          </button>
-        </div>
       </div>
     </main>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { LeaderboardModal, ProfileModal } from './components/Account';
+import { LeaderboardPage, ProfilePage } from './components/Account';
 import { AuthModal, PasswordRecovery, ProfileSetup } from './components/AuthPanel';
 import { Game } from './components/Game';
 import { Home } from './components/Home';
@@ -10,16 +10,18 @@ import { useStore } from './store';
 
 export function App() {
   const { room, session, connection, toasts, dismiss } = useStore();
-  const { accountsEnabled, auth, profileView, leaderboardOpen, authOpen, recoveryOpen } = useStore();
+  const { accountsEnabled, auth, page, authOpen, recoveryOpen } = useStore();
   const [rules, setRules] = useState(false);
   // Une fois dans un salon, on retire le code d'invitation de l'adresse.
   useEffect(() => {
-    if (room && location.search) history.replaceState(null, '', '/');
+    if (room && location.search) history.replaceState(null, '', location.pathname);
   }, [room]);
   const openRules = () => setRules(true);
 
   let screen;
-  if (room?.status === 'playing' && room.game) screen = <Game room={room} onRules={openRules} />;
+  if (page.name === 'profile') screen = <ProfilePage id={page.id} onRules={openRules} />;
+  else if (page.name === 'leaderboard') screen = <LeaderboardPage onRules={openRules} />;
+  else if (room?.status === 'playing' && room.game) screen = <Game room={room} onRules={openRules} />;
   else if (room) screen = <Lobby room={room} onRules={openRules} />;
   else if (session && connection !== 'offline') screen = <div className="home hint">Retour à ta table…</div>;
   else screen = <Home onRules={openRules} />;
@@ -30,8 +32,6 @@ export function App() {
       {screen}
       {rules && <Rules onClose={() => setRules(false)} />}
       {accountsEnabled && auth.signedIn && !auth.profile && <ProfileSetup />}
-      {profileView && <ProfileModal id={profileView} />}
-      {leaderboardOpen && <LeaderboardModal />}
       {authOpen && <AuthModal />}
       {recoveryOpen && <PasswordRecovery />}
       <div className="toasts" aria-live="assertive">

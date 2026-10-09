@@ -57,12 +57,11 @@
 
   <!-- Texte -->
   <text x="80" y="250" font-family="Yeseva One, serif" font-size="150" fill="#d8ae55">Durak</text>
-  <text x="84" y="322" font-family="Golos Text, sans-serif" font-weight="600" font-size="34" fill="#f8f4ea">Ne sois pas le dernier</text>
-  <text x="84" y="366" font-family="Golos Text, sans-serif" font-weight="600" font-size="34" fill="#f8f4ea">avec des cartes en main.</text>
-  <text x="84" y="430" font-family="Golos Text, sans-serif" font-weight="600" font-size="24" fill="#f8f4ea" fill-opacity="0.7">Jeu de cartes russe · 2 à 6 joueurs · en ligne</text>
+  <text x="84" y="330" font-family="Golos Text, sans-serif" font-weight="600" font-size="38" fill="#f8f4ea">Le jeu de cartes russe</text>
+  <text x="84" y="384" font-family="Golos Text, sans-serif" font-weight="600" font-size="26" fill="#f8f4ea" fill-opacity="0.7">De 2 à 6 joueurs · en ligne · entre amis</text>
 
-  <rect x="80" y="476" width="356" height="56" rx="28" fill="#d8ae55"/>
-  <text x="258" y="512" font-family="Golos Text, sans-serif" font-weight="600" font-size="24" fill="#2a1d05" text-anchor="middle">Rejoins avec un code</text>
+  <rect x="80" y="436" width="356" height="56" rx="28" fill="#d8ae55"/>
+  <text x="258" y="472" font-family="Golos Text, sans-serif" font-weight="600" font-size="24" fill="#2a1d05" text-anchor="middle">Rejoins avec un code</text>
 
   <text x="84" y="590" font-family="JetBrains Mono, monospace" font-weight="500" font-size="22" fill="#f8f4ea" fill-opacity="0.55" letter-spacing="2">durak.tanguydavid.fr</text>
 </svg>

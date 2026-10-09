@@ -72,10 +72,13 @@ interface State {
   signOut: () => Promise<void>;
   saveProfile: (username: string, color: number) => Promise<boolean>;
 
-  // --- Fenêtres ----------------------------------------------------------------
-  /** Profil affiché (id de compte), ou null. */
-  profileView: string | null;
-  leaderboardOpen: boolean;
+  // --- Pages et fenêtres -----------------------------------------------------
+  /** Page affichée, synchronisée avec l'adresse (/profil/…, /classement). */
+  page: Page;
+  /** Va sur une page (et l'ajoute à l'historique du navigateur). */
+  navigate: (page: Page) => void;
+  /** Revient à la page précédente de l'application, sinon à l'accueil. */
+  goBack: () => void;
   authOpen: boolean;
   /** Le joueur est revenu par le lien « mot de passe oublié » : il doit en choisir un nouveau. */
   recoveryOpen: boolean;
@@ -86,6 +89,18 @@ interface State {
 }
 
 const SIGNED_OUT: AuthState = { signedIn: false, profile: null, suggestedName: null };
+
+export type Page = { name: 'main' } | { name: 'profile'; id: string } | { name: 'leaderboard' };
+
+const pageFromUrl = (): Page => {
+  const m = location.pathname.match(/^\/profil\/([0-9a-f-]{36})\/?$/i);
+  if (m) return { name: 'profile', id: m[1] };
+  if (/^\/classement\/?$/.test(location.pathname)) return { name: 'leaderboard' };
+  return { name: 'main' };
+};
+const pageUrl = (p: Page) => (p.name === 'profile' ? `/profil/${p.id}` : p.name === 'leaderboard' ? '/classement' : '/');
+/** Nombre de pages ouvertes dans l'application, pour savoir si « retour » reste sur le site. */
+let depth = 0;
 
 /** Messages d'erreur Supabase traduits pour les cas courants. */
 function authError(message: string): string {
@@ -166,6 +181,12 @@ export const useStore = create<State>((set, get) => {
       });
     }
     socket.connect();
+  });
+
+  // Boutons précédent / suivant du navigateur.
+  window.addEventListener('popstate', () => {
+    depth = Math.max(0, depth - 1);
+    set({ page: pageFromUrl() });
   });
 
   socket.on('connect', () => {
@@ -287,12 +308,24 @@ export const useStore = create<State>((set, get) => {
       return !!r;
     },
 
-    profileView: null,
-    leaderboardOpen: false,
+    page: pageFromUrl(),
+    navigate: (page) => {
+      const url = pageUrl(page);
+      if (url !== location.pathname) {
+        history.pushState(null, '', url + (page.name === 'main' ? location.search : ''));
+        depth++;
+      }
+      set({ page });
+      window.scrollTo(0, 0);
+    },
+    goBack: () => {
+      if (depth > 0) history.back();
+      else get().navigate({ name: 'main' });
+    },
     authOpen: false,
     recoveryOpen: false,
-    openProfile: (id) => set({ profileView: id, leaderboardOpen: false }),
-    openLeaderboard: (open) => set({ leaderboardOpen: open, profileView: null }),
+    openProfile: (id) => (id ? get().navigate({ name: 'profile', id }) : get().goBack()),
+    openLeaderboard: (open) => (open ? get().navigate({ name: 'leaderboard' }) : get().goBack()),
     openAuth: (open) => set({ authOpen: open }),
     closeRecovery: () => set({ recoveryOpen: false }),
     kick: async (playerId) => !!(await request((ack) => socket.emit('room:kick', { playerId }, ack))),

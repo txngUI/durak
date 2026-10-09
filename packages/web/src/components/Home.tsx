@@ -2,7 +2,7 @@ import { type Card, NAME_MAX_LENGTH } from '@durak/engine';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { codeFromUrl, useStore } from '../store';
-import { AccountChip } from './Account';
+import { AppBar } from './Account';
 import { AuthPanel } from './AuthPanel';
 import { PlayingCard } from './PlayingCard';
 
@@ -21,7 +21,7 @@ const formatCode = (raw: string) => {
 };
 
 export function Home({ onRules }: { onRules: () => void }) {
-  const { name, setName, create, join, accountsEnabled, auth, openLeaderboard } = useStore();
+  const { name, setName, create, join, accountsEnabled, auth } = useStore();
   // Connecté avec un profil : le pseudo du compte est utilisé, pas de champ à remplir.
   const account = auth.profile;
   // Arrivée par un lien d'invitation : le code du salon est déjà rempli.
@@ -42,7 +42,9 @@ export function Home({ onRules }: { onRules: () => void }) {
   };
 
   return (
-    <main className="home">
+    <div className="app-shell">
+      <AppBar onRules={onRules} />
+      <main className="home">
       <div className="home-inner">
         <div>
           <div className="fan" aria-hidden="true">
@@ -58,16 +60,9 @@ export function Home({ onRules }: { onRules: () => void }) {
             ))}
           </div>
           <h1>Durak</h1>
-          <p className="sub">Ne sois pas le dernier avec des cartes en main.</p>
-          {accountsEnabled && (
-            <button type="button" className="linkish" style={{ marginTop: 10 }} onClick={() => openLeaderboard(true)}>
-              Voir le classement
-            </button>
-          )}
         </div>
 
         <div className="home-side">
-          {accountsEnabled && account && <AccountChip />}
           {accountsEnabled && !auth.signedIn && (
             <div className="panel">
               <span className="panel-title">Ton compte</span>
@@ -129,14 +124,10 @@ export function Home({ onRules }: { onRules: () => void }) {
             Rejoindre
           </button>
           {!nameOk && <span className="hint">Choisis d’abord un pseudo.</span>}
-          <div>
-            <button type="button" className="linkish" onClick={onRules}>
-              Règles du jeu
-            </button>
-          </div>
         </motion.form>
         </div>
       </div>
     </main>
+    </div>
   );
 }
